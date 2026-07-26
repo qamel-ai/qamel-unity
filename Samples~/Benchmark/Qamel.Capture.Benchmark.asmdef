@@ -1,0 +1,16 @@
+{
+    "name": "Qamel.Capture.Benchmark",
+    "rootNamespace": "QamelCapture.Benchmark",
+    "references": [
+        "Qamel.Capture"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

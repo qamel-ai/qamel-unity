@@ -1,0 +1,26 @@
+{
+  "name": "com.qamel.unity",
+  "version": "0.1.2",
+  "displayName": "Qamel",
+  "description": "QA tools for Unity. Includes session capture: continuous gameplay and game state recording with an in-game bug report hotkey, keeping a rolling buffer of frames, logs and input with minimal performance impact; reports are bundled in memory and uploaded to Qamel.",
+  "unity": "2021.3",
+  "keywords": [
+    "qa",
+    "playtesting",
+    "bug report",
+    "capture",
+    "qamel"
+  ],
+  "author": {
+    "name": "Qamel",
+    "url": "https://qamel.ai"
+  },
+  "documentationUrl": "https://qamel.ai",
+  "samples": [
+    {
+      "displayName": "Performance Benchmark",
+      "description": "Measures Qamel Capture frame-time overhead (baseline vs rolling buffer vs continuous streaming) across capture resolutions and rates.",
+      "path": "Samples~/Benchmark"
+    }
+  ]
+}
