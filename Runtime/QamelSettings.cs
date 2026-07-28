@@ -9,13 +9,21 @@ namespace QamelCapture
     public sealed class QamelSettings : ScriptableObject
     {
         public const string ResourceName = "QamelSettings";
-        public const string PluginVersion = "0.1.0";
+        /// <summary>Kept in sync with package.json by the release script.</summary>
+        public const string PluginVersion = "0.1.3";
 
         public enum FlipMode
         {
             Auto = 0,
             ForceFlip = 1,
             NoFlip = 2,
+        }
+
+        public enum ParticipantKind
+        {
+            Unknown = 0,
+            Developer = 1,
+            Playtester = 2,
         }
 
         [Header("General")]
@@ -31,6 +39,13 @@ namespace QamelCapture
 
         [Tooltip("Master switch for uploads. When off, Qamel captures nothing useful (there is no local storage), so this is mainly for temporarily muting the plugin.")]
         public bool uploadReports = true;
+
+        [Header("Build context")]
+        [Tooltip("Optional immutable build identifier from your CI or release pipeline. Prefer this over a distribution-channel name.")]
+        public string buildId = "";
+
+        [Tooltip("Who normally runs packaged builds made with these settings. Editor sessions are always marked as developer. Leave Unknown unless the build has a clear audience.")]
+        public ParticipantKind defaultParticipantKind = ParticipantKind.Unknown;
 
         [Header("Capture")]
         [Tooltip("How many seconds of gameplay are kept in the rolling buffer and attached to each report.")]
@@ -62,6 +77,12 @@ namespace QamelCapture
         [Tooltip("Hotkey that opens the in-game bug report overlay.")]
         public KeyCode reportHotkey = KeyCode.F8;
 
+        [Tooltip("Show Qamel's built-in report form. Turn off to use your own UI instead and call Qamel.TriggerReport(text) from it; capture and upload keep working either way.")]
+        public bool useBuiltInOverlay = true;
+
+        [Tooltip("Freeze the game (Time.timeScale = 0) and pause audio while the report form is open. Turn this off for multiplayer, where only this client would stop, or when your game pauses itself from Qamel.ReportFormOpened.")]
+        public bool pauseWhileReporting = true;
+
         [Tooltip("Automatically file a report when an unhandled exception is logged, so the session context is delivered before a potential crash can lose the in-memory buffer. Rate-limited to one auto-report per minute.")]
         public bool autoReportOnException = true;
 
@@ -72,6 +93,10 @@ namespace QamelCapture
         [Tooltip("Seconds of capture per streamed chunk.")]
         [Range(2, 60)]
         public int streamChunkSeconds = 10;
+
+        [Header("Updates")]
+        [Tooltip("Ask Qamel once a day, in the editor only, whether a newer plugin version exists and show it in Project Settings > Qamel. A plain GET: no API key, no identifiers, no project data.")]
+        public bool checkForUpdates = true;
 
         [Header("Diagnostics")]
         [Tooltip("Log Qamel's own informational messages to the console.")]

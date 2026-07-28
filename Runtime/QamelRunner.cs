@@ -25,10 +25,12 @@ namespace QamelCapture
         ReportOverlay _overlay;
         Uploader _uploader;
         ChunkStreamer _streamer;
+        ParticipantIdentity _identity;
 
         string _sessionId;
         DateTime _sessionStartUtc;
         System.Diagnostics.Stopwatch _clock;
+        int _mainThreadId;
         readonly ConcurrentQueue<Action> _mainThreadQueue = new ConcurrentQueue<Action>();
 
         string _toast;
@@ -42,6 +44,10 @@ namespace QamelCapture
         /// <summary>Seconds since session start (monotonic, unaffected by timeScale).</summary>
         public double Now => _clock != null ? _clock.Elapsed.TotalSeconds : 0;
 
+        /// <summary>True while the built-in report form is showing.</summary>
+        public bool IsReportFormOpen => _overlay != null && _overlay.IsOpen;
+        internal IdentitySnapshot Identity => _identity != null ? _identity.Snapshot() : default(IdentitySnapshot);
+
         void Awake()
         {
             if (Instance != null && Instance != this)
@@ -50,6 +56,7 @@ namespace QamelCapture
                 return;
             }
             Instance = this;
+            _mainThreadId = Thread.CurrentThread.ManagedThreadId;
 
             try
             {
@@ -77,9 +84,12 @@ namespace QamelCapture
                 _sessionId = Guid.NewGuid().ToString("N");
                 _sessionStartUtc = DateTime.UtcNow;
                 _clock = System.Diagnostics.Stopwatch.StartNew();
+                _identity = new ParticipantIdentity(_settings);
+                Qamel.ApplyPendingIdentity(this);
 
                 int maxFrames = Mathf.CeilToInt(_settings.bufferSeconds * Mathf.Max(1f, _settings.captureFps)) + 8;
                 _buffer = new SessionBuffer(_settings.bufferSeconds, maxFrames);
+                _buffer.AddEvent(Now, SessionEvents.Identity(Now, "init", Identity));
 
                 Func<double> now = () => _clock.Elapsed.TotalSeconds;
                 // The exception hook can fire from any thread; the actual report is
@@ -88,21 +98,24 @@ namespace QamelCapture
                     () => Interlocked.Exchange(ref _pendingAutoReports, 1));
                 _inputRecorder = new InputRecorder(_settings, _buffer, now);
                 _frameRecorder = new FrameRecorder(_settings, _buffer, now);
-                _overlay = new ReportOverlay();
+                _overlay = new ReportOverlay(_settings);
                 _overlay.Submitted += TriggerReport;
+                _overlay.Opened += Qamel.RaiseReportFormOpened;
+                _overlay.Closed += Qamel.RaiseReportFormClosed;
                 _uploader = new Uploader(_settings, this);
 
                 StartCoroutine(_frameRecorder.CaptureLoop());
 
                 if (_settings.continuousStreaming)
                 {
-                    _streamer = new ChunkStreamer(_settings, _buffer, now, _sessionId, _sessionStartUtc,
+                    _streamer = new ChunkStreamer(_settings, _buffer, now, () => Identity,
+                        _sessionId, _sessionStartUtc,
                         (manifest, bytes, fileName) =>
                             _mainThreadQueue.Enqueue(() => _uploader.Enqueue(manifest, bytes, fileName, isChunk: true)));
                     StartCoroutine(_streamer.StreamLoop());
                 }
 
-                QLog.Info("Session " + _sessionId + " started. Press " + _settings.reportHotkey + " to file a bug report.");
+                QLog.Notice("Session " + _sessionId + " started. Press " + _settings.reportHotkey + " to file a bug report.");
             }
             catch (Exception e)
             {
@@ -124,7 +137,8 @@ namespace QamelCapture
                 if (!_overlay.IsOpen) _inputRecorder.Tick();
                 _overlay.Tick();
 
-                if (!_overlay.IsOpen && CompatInput.GetKeyDown(_settings.reportHotkey))
+                if (_settings.useBuiltInOverlay && !_overlay.IsOpen &&
+                    CompatInput.GetKeyDown(_settings.reportHotkey))
                     _overlay.Open();
             }
             catch (Exception e)
@@ -201,6 +215,8 @@ namespace QamelCapture
                     SessionStartedUtc = _sessionStartUtc,
                     BufferSeconds = _settings.bufferSeconds,
                     CaptureFps = _settings.captureFps,
+                    Identity = Identity,
+                    BuildId = _settings.buildId,
                 });
                 string fileName = "report_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss") + "_" + reportId + ".zip";
 
@@ -248,6 +264,68 @@ namespace QamelCapture
             _buffer.AddEvent(t, SessionEvents.Custom(t, name, data));
         }
 
+        internal void SetPlayerIdentity(string playerId)
+        {
+            RunOnMainThread(() =>
+            {
+                if (_identity == null) return;
+                if (!_identity.TrySetPlayer(playerId, out string error))
+                {
+                    QLog.Warn(error);
+                    return;
+                }
+                AddIdentityEvent("set");
+            });
+        }
+
+        internal void ClearPlayerIdentity()
+        {
+            RunOnMainThread(() =>
+            {
+                if (_identity == null) return;
+                _identity.ClearPlayer();
+                AddIdentityEvent("clear");
+            });
+        }
+
+        internal void SetParticipantKind(QamelSettings.ParticipantKind kind)
+        {
+            RunOnMainThread(() =>
+            {
+                if (_identity == null) return;
+                _identity.SetParticipantKind(kind);
+                AddIdentityEvent("set");
+            });
+        }
+
+        internal void ApplyInitialPlayerIdentity(string playerId)
+        {
+            if (!_identity.TrySetPlayer(playerId, out string error)) QLog.Warn(error);
+        }
+
+        internal void ApplyInitialClearPlayer()
+        {
+            _identity.ClearPlayer();
+        }
+
+        internal void ApplyInitialParticipantKind(QamelSettings.ParticipantKind kind)
+        {
+            _identity.SetParticipantKind(kind);
+        }
+
+        void AddIdentityEvent(string action)
+        {
+            if (_buffer == null) return;
+            double t = Now;
+            _buffer.AddEvent(t, SessionEvents.Identity(t, action, Identity));
+        }
+
+        void RunOnMainThread(Action action)
+        {
+            if (Thread.CurrentThread.ManagedThreadId == _mainThreadId) action();
+            else _mainThreadQueue.Enqueue(action);
+        }
+
         void ShowToast(string message)
         {
             _toast = message;
@@ -271,7 +349,7 @@ namespace QamelCapture
                     !string.IsNullOrWhiteSpace(_settings.endpoint) &&
                     isActiveAndEnabled)
                 {
-                    StartCoroutine(PluginDiagnostics.Send(_settings, _sessionId, where, e));
+                    StartCoroutine(PluginDiagnostics.Send(_settings, _sessionId, where, e, Identity));
                 }
             }
             catch { /* the failure path must never throw */ }

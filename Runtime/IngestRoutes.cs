@@ -14,6 +14,9 @@ namespace QamelCapture
         public const string ChunkPath = "/v1/chunk";
         public const string PluginErrorPath = "/v1/plugin-error";
 
+        /// <summary>Editor-only version check; unauthenticated (see the capture spec).</summary>
+        public const string LatestVersionPath = "/v1/plugin/latest";
+
         /// <summary>
         /// Base URL the server asked this session to use instead of the
         /// configured endpoint. Session-scoped and never persisted (Qamel writes

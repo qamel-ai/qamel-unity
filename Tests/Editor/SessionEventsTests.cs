@@ -78,5 +78,22 @@ namespace QamelCapture.Tests
             Assert.AreEqual("abc123", parsed["report_id"]);
             Assert.AreEqual("fell through floor", parsed["text"]);
         }
+
+        [Test]
+        public void IdentityEventMatchesSpec()
+        {
+            var parsed = TestJson.Parse(SessionEvents.Identity(0.25, "set", new IdentitySnapshot
+            {
+                InstallationId = "0123456789abcdef0123456789abcdef",
+                ExternalPlayerId = "account_42",
+                ParticipantKind = "playtester",
+            }));
+
+            Assert.AreEqual("identity", parsed["type"]);
+            Assert.AreEqual("set", parsed["action"]);
+            Assert.AreEqual("0123456789abcdef0123456789abcdef", parsed["installation_id"]);
+            Assert.AreEqual("account_42", parsed["external_player_id"]);
+            Assert.AreEqual("playtester", parsed["participant_kind"]);
+        }
     }
 }

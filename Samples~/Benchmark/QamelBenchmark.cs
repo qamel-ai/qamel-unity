@@ -145,6 +145,7 @@ namespace QamelCapture.Benchmark
                     if (upload) uploader = new Uploader(settings, this);
                     var pendingUploads = new Queue<Action>();
                     streamer = new ChunkStreamer(settings, buffer, now,
+                        () => default(IdentitySnapshot),
                         Guid.NewGuid().ToString("N"), DateTime.UtcNow,
                         (manifest, bytes, fileName) =>
                         {

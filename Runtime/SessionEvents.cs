@@ -73,6 +73,18 @@ namespace QamelCapture
             return j.End();
         }
 
+        public static string Identity(double t, string action, IdentitySnapshot identity)
+        {
+            return Writer.Begin()
+                .Num("t", t)
+                .Str("type", "identity")
+                .Str("action", action)
+                .Str("installation_id", identity.InstallationId ?? "")
+                .Str("external_player_id", identity.ExternalPlayerId ?? "")
+                .Str("participant_kind", identity.ParticipantKind ?? "unknown")
+                .End();
+        }
+
         public static string Report(double t, string reportId, string userText)
         {
             return Writer.Begin()

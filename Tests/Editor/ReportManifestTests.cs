@@ -28,6 +28,13 @@ namespace QamelCapture.Tests
                 SessionStartedUtc = started,
                 BufferSeconds = 120,
                 CaptureFps = 6f,
+                BuildId = "build-42",
+                Identity = new IdentitySnapshot
+                {
+                    InstallationId = "0123456789abcdef0123456789abcdef",
+                    ExternalPlayerId = "player_7",
+                    ParticipantKind = "playtester",
+                },
             });
 
             var parsed = TestJson.Parse(json);
@@ -48,13 +55,20 @@ namespace QamelCapture.Tests
             Assert.AreEqual("240", parsed["event_count"]);
             Assert.AreEqual("720", parsed["frame_count"]);
             Assert.AreEqual("fell through the floor", parsed["user_text"]);
+            Assert.AreEqual("build-42", parsed["build_id"]);
+            Assert.AreEqual("0123456789abcdef0123456789abcdef", parsed["installation_id"]);
+            Assert.AreEqual("player_7", parsed["external_player_id"]);
+            Assert.AreEqual("playtester", parsed["participant_kind"]);
+            Assert.AreEqual("editor", parsed["run_environment"]);
 
             // Environment-dependent fields must exist (values vary by machine).
             foreach (var key in new[]
             {
                 "engine_version", "game_name", "game_version", "platform", "os",
                 "device_id", "device_model", "gpu", "system_memory_mb",
-                "screen_width", "screen_height",
+                "screen_width", "screen_height", "build_configuration",
+                "cpu_architecture", "cpu_model", "graphics_api", "display_refresh_hz",
+                "system_language", "quality_preset",
             })
             {
                 Assert.IsTrue(parsed.ContainsKey(key), "manifest missing field: " + key);

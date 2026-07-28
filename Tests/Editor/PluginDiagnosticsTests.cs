@@ -29,7 +29,12 @@ namespace QamelCapture.Tests
                 "stack should contain the throwing method");
             Assert.AreEqual("unity", parsed["engine"]);
             Assert.AreEqual(QamelSettings.PluginVersion, parsed["plugin_version"]);
-            foreach (var key in new[] { "engine_version", "game_name", "platform", "os", "gpu" })
+            foreach (var key in new[]
+            {
+                "engine_version", "game_name", "platform", "os", "gpu",
+                "run_environment", "build_configuration", "installation_id",
+                "cpu_architecture", "graphics_api", "system_language",
+            })
                 Assert.IsTrue(parsed.ContainsKey(key), "payload missing field: " + key);
         }
 

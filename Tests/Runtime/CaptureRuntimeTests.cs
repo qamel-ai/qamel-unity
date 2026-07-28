@@ -147,6 +147,73 @@ namespace QamelCapture.Tests
         }
 
         [UnityTest]
+        public IEnumerator ReportFormPausesTheGameAndRestoresItOnClose()
+        {
+            var settings = MakeSettings();
+            settings.pauseWhileReporting = true;
+            var overlay = new ReportOverlay(settings);
+
+            float originalTimeScale = Time.timeScale;
+            bool originalAudioPause = AudioListener.pause;
+            Time.timeScale = 0.5f; // a game already running slow motion
+            AudioListener.pause = false;
+            int opened = 0, closed = 0;
+            overlay.Opened += () => opened++;
+            overlay.Closed += () => closed++;
+
+            try
+            {
+                overlay.Open();
+                yield return null;
+                Assert.AreEqual(0f, Time.timeScale, "the game must be frozen while reporting");
+                Assert.IsTrue(AudioListener.pause, "audio must be paused while reporting");
+                Assert.AreEqual(1, opened);
+
+                overlay.Close();
+                yield return null;
+                // Restored to what the game had, not to 1.
+                Assert.AreEqual(0.5f, Time.timeScale, "the previous time scale must come back");
+                Assert.IsFalse(AudioListener.pause);
+                Assert.AreEqual(1, closed);
+            }
+            finally
+            {
+                overlay.Close();
+                Time.timeScale = originalTimeScale;
+                AudioListener.pause = originalAudioPause;
+                Object.Destroy(settings);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ReportFormLeavesTimeAloneWhenPausingIsOff()
+        {
+            var settings = MakeSettings();
+            settings.pauseWhileReporting = false;
+            var overlay = new ReportOverlay(settings);
+
+            float originalTimeScale = Time.timeScale;
+            bool originalAudioPause = AudioListener.pause;
+            Time.timeScale = 1f;
+            AudioListener.pause = false;
+
+            try
+            {
+                overlay.Open();
+                yield return null;
+                Assert.AreEqual(1f, Time.timeScale, "a networked game must keep running");
+                Assert.IsFalse(AudioListener.pause);
+            }
+            finally
+            {
+                overlay.Close();
+                Time.timeScale = originalTimeScale;
+                AudioListener.pause = originalAudioPause;
+                Object.Destroy(settings);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator EndToEndReportBundleFromLiveRecorders()
         {
             var settings = MakeSettings();

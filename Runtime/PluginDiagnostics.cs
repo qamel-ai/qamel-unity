@@ -22,32 +22,38 @@ namespace QamelCapture
 
         public static string BuildPayload(string sessionId, string where, Exception error)
         {
-            return new QamelJson().Begin()
+            return BuildPayload(sessionId, where, error, default(IdentitySnapshot), "");
+        }
+
+        public static string BuildPayload(
+            string sessionId,
+            string where,
+            Exception error,
+            IdentitySnapshot identity,
+            string buildId)
+        {
+            var json = new QamelJson().Begin()
                 .Str("schema", ReportBundler.SchemaVersion)
                 .Str("kind", "plugin_error")
                 .Str("session_id", sessionId ?? "")
                 .Str("where", where)
                 .Str("error", Truncate(error != null ? error.GetType().Name + ": " + error.Message : "", MaxErrorChars))
-                .Str("stack", Truncate(error != null ? error.StackTrace : "", MaxStackChars))
-                .Str("engine", "unity")
-                .Str("engine_version", Application.unityVersion)
-                .Str("plugin", "com.qamel.unity")
-                .Str("plugin_version", QamelSettings.PluginVersion)
-                .Str("game_name", Application.productName)
-                .Str("game_version", Application.version)
-                .Str("platform", Application.platform.ToString())
-                .Str("os", SystemInfo.operatingSystem)
-                .Str("gpu", SystemInfo.graphicsDeviceName)
-                .Str("device_id", ReportManifest.DeviceId)
-                .End();
+                .Str("stack", Truncate(error != null ? error.StackTrace : "", MaxStackChars));
+            ReportManifest.AppendContext(json, identity, buildId);
+            return json.End();
         }
 
-        public static IEnumerator Send(QamelSettings settings, string sessionId, string where, Exception error)
+        public static IEnumerator Send(
+            QamelSettings settings,
+            string sessionId,
+            string where,
+            Exception error,
+            IdentitySnapshot identity)
         {
             string payload;
             try
             {
-                payload = BuildPayload(sessionId, where, error);
+                payload = BuildPayload(sessionId, where, error, identity, settings.buildId);
             }
             catch
             {
