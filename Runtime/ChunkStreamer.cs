@@ -9,7 +9,7 @@ namespace QamelCapture
     /// <summary>
     /// Experimental continuous streaming: periodically drains the session buffer
     /// and delivers each slice as a chunk bundle (kind "chunk", same wire format
-    /// as reports — see the Qamel capture wire format). This is the second ISessionSink
+    /// as reports; see the Qamel capture wire format). This is the second ISessionSink
     /// consumer the architecture was designed for; recorders are untouched.
     /// Bundling runs on the thread pool; the callback receives the finished bytes
     /// on that worker thread.

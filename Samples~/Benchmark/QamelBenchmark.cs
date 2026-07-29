@@ -153,7 +153,7 @@ namespace QamelCapture.Benchmark
                             if (upload)
                                 lock (pendingUploads)
                                     pendingUploads.Enqueue(() => uploader.Enqueue(manifest, bytes, fileName, true));
-                            // else: discard — measures on-device cost without network
+                            // else: discard; measures on-device cost without network
                         });
                     StartCoroutine(streamer.StreamLoop());
                     StartCoroutine(DrainPendingUploads(pendingUploads));

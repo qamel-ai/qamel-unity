@@ -181,7 +181,7 @@ namespace QamelCapture
             GUILayout.BeginArea(panel, GUI.skin.window);
             GUILayout.Label("Report a bug", TitleStyle);
             GUILayout.Label(
-                "What went wrong? A sentence helps a lot — but it is optional: the last " +
+                "What went wrong? A sentence helps a lot, but it is optional: the last " +
                 "minutes of gameplay, logs and input are attached either way.",
                 WrappedStyle);
             GUILayout.Space(4);

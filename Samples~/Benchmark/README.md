@@ -3,10 +3,10 @@
 Measures Qamel's frame-time cost in your own project, on your own hardware.
 Compares three modes on a synthetic GPU+CPU-loaded scene:
 
-1. **baseline** — Qamel off
-2. **buffer** — rolling in-memory buffer, footage sent only when a report is
+1. **baseline**: Qamel off
+2. **buffer**: rolling in-memory buffer, footage sent only when a report is
    filed (the default)
-3. **streaming** — continuous capture upload
+3. **streaming**: continuous capture upload
 
 across a matrix of capture resolutions (`frameWidths`) and rates
 (`captureFpsValues`).
@@ -22,7 +22,7 @@ across a matrix of capture resolutions (`frameWidths`) and rates
 
 For numbers you can rely on:
 
-- **Use a standalone build**, not the editor — editor overhead adds noise and
+- **Use a standalone build**, not the editor: editor overhead adds noise and
   compresses the differences.
 - Run the matrix three times and compare medians.
 - Test at the resolutions you care about. Capture reads the screen, so window
@@ -47,11 +47,11 @@ rather than frame time.
 
 ## Reading the results
 
-- `mean ms` / `p95 ms` / `p99 ms` — frame time. p99 catches hitches the mean
+- `mean ms` / `p95 ms` / `p99 ms`: frame time. p99 catches hitches the mean
   hides, such as encode or GC spikes.
-- `overhead` — change in mean frame time against the baseline scenario.
-- `GC0` — gen-0 collections in the measure window. Expect roughly the baseline
+- `overhead`: change in mean frame time against the baseline scenario.
+- `GC0`: gen-0 collections in the measure window. Expect roughly the baseline
   count; the capture path is designed to be allocation-steady.
-- `capture/s` — KB/s of encoded data produced. In buffer mode that is what sits
+- `capture/s`: KB/s of encoded data produced. In buffer mode that is what sits
   in RAM; in streaming mode it is what gets uploaded, so use it to pick
   settings that fit your testers' upload capacity.

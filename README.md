@@ -7,9 +7,9 @@ sends a report to Qamel.
 Each report contains:
 
 - **Gameplay footage** of the moments leading up to the report
-- **Logs** — console messages and exceptions with stack traces
-- **Context** — scene, frame rate, memory, play time
-- **Input** — the key and mouse actions that led there
+- **Logs**: console messages and exceptions with stack traces
+- **Context**: scene, frame rate, memory, play time
+- **Input**: the key and mouse actions that led there
 
 Unhandled exceptions file a report on their own, so crashes arrive with their
 context. No scene setup and no code required.
@@ -65,7 +65,7 @@ and upload are unchanged; only the form is yours.
 By default the game freezes: Qamel sets `Time.timeScale` to 0 and pauses audio
 while the form is showing, then restores whatever the values were. Turn off
 *Pause While Reporting* for anything networked, where pausing one client does
-not pause the session. Capture is unaffected either way — footage timing uses
+not pause the session. Capture is unaffected either way: footage timing uses
 unscaled time and the session clock is a stopwatch.
 
 Qamel **cannot swallow the keypress**: neither input backend lets a plugin
@@ -137,7 +137,7 @@ Unity resolves a git package once and records that commit in your
 Qamel therefore checks for one itself: `Edit > Project Settings > Qamel` shows
 your installed version, and when a newer one exists you get a banner with
 *Update to X*, *Release notes* and *Skip this version*, plus one line in the
-console. *Update to X* asks Package Manager for that release's tag — Package
+console. *Update to X* asks Package Manager for that release's tag. Package
 Manager only re-resolves a git package when the requested revision changes, so
 naming the tag is what makes it an update. If you installed without a tag, the
 first update pins you to one and later releases update the same way. A branch
@@ -149,8 +149,8 @@ with *Check For Updates*. It is a plain `GET` for a version number: no API key,
 no identifiers, no project data. Use *Check for updates* on that page to ask
 immediately.
 
-To update by hand — which is what you need coming from a version that predates
-this banner — add the git URL with the tag you want in Package Manager
+To update by hand (which is what you need coming from a version that predates
+this banner), add the git URL with the tag you want in Package Manager
 (*+ > Install package from git URL*):
 
 ```
@@ -167,7 +167,7 @@ also works if you track a branch and just want the newest commit.
    `[Qamel] Session … started`.
 2. Press **F8** and send a report. The console confirms the upload, with no
    `[Qamel]` warnings.
-3. Do the same in a build — that is what your playtesters will run.
+3. Do the same in a build: that is what your playtesters will run.
 
 ## Troubleshooting
 

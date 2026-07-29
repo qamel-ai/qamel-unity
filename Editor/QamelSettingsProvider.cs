@@ -57,7 +57,7 @@ namespace QamelCapture.Editor
                             endpoint.StartsWith("http://127.0.0.1");
             if (endpoint.Length == 0)
             {
-                EditorGUILayout.HelpBox("Endpoint is empty — reports cannot be delivered.",
+                EditorGUILayout.HelpBox("Endpoint is empty: reports cannot be delivered.",
                     MessageType.Error);
             }
             else if (!endpoint.StartsWith("https://") && !loopback)
@@ -197,7 +197,7 @@ namespace QamelCapture.Editor
         {
             EditorGUILayout.LabelField("Essential", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Paste your project API key to get started. Defaults work for most projects — " +
+                "Paste your project API key to get started. Defaults work for most projects; " +
                 "open Optional settings below only if you need to change them.",
                 MessageType.None);
             EditorGUILayout.Space(2);
@@ -209,6 +209,7 @@ namespace QamelCapture.Editor
                     "API key is required. Reports stay in memory until one is set.",
                     MessageType.Warning);
             }
+            DrawProperty(serialized, nameof(QamelSettings.reportHotkey));
         }
 
         static void DrawOptional(SerializedObject serialized, QamelSettings settings)
@@ -255,7 +256,6 @@ namespace QamelCapture.Editor
             if (Foldout(FoldReportingKey, "Reporting", defaultOpen: true))
             {
                 EditorGUI.indentLevel++;
-                DrawProperty(serialized, nameof(QamelSettings.reportHotkey));
                 DrawProperty(serialized, nameof(QamelSettings.useBuiltInOverlay));
                 DrawProperty(serialized, nameof(QamelSettings.pauseWhileReporting));
                 DrawProperty(serialized, nameof(QamelSettings.autoReportOnException));

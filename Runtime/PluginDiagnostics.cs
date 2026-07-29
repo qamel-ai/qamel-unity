@@ -10,7 +10,7 @@ namespace QamelCapture
     /// Reports Qamel's own internal failures to the Qamel servers (POST
     /// {endpoint}/v1/plugin-error), so a broken plugin surfaces instead of
     /// silently losing a tester's reports. The payload
-    /// contains plugin/engine/OS info and the internal error only — never gameplay
+    /// contains plugin/engine/OS info and the internal error only, never gameplay
     /// data. Fire-and-forget: one attempt, all failures swallowed, because this
     /// runs on the plugin's own failure path.
     /// </summary>
