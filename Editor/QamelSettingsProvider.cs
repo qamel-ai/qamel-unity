@@ -13,6 +13,14 @@ namespace QamelCapture.Editor
         const string AssetDir = "Assets/Qamel/Resources";
         const string AssetPath = AssetDir + "/" + QamelSettings.ResourceName + ".asset";
 
+        const string ShowOptionalKey = "Qamel.Settings.ShowOptional";
+        const string FoldUploadKey = "Qamel.Settings.Fold.Upload";
+        const string FoldBuildKey = "Qamel.Settings.Fold.Build";
+        const string FoldCaptureKey = "Qamel.Settings.Fold.Capture";
+        const string FoldReportingKey = "Qamel.Settings.Fold.Reporting";
+        const string FoldExperimentalKey = "Qamel.Settings.Fold.Experimental";
+        const string FoldDiagnosticsKey = "Qamel.Settings.Fold.Diagnostics";
+
         [SettingsProvider]
         public static SettingsProvider Create()
         {
@@ -170,6 +178,110 @@ namespace QamelCapture.Editor
         static GUIStyle WrappedMiniLabel =>
             _wrappedMiniLabel ??= new GUIStyle(EditorStyles.miniLabel) { wordWrap = true };
 
+        static void DrawProperty(SerializedObject serialized, string name)
+        {
+            SerializedProperty property = serialized.FindProperty(name);
+            if (property != null)
+                EditorGUILayout.PropertyField(property, true);
+        }
+
+        static bool Foldout(string sessionKey, string label, bool defaultOpen = false)
+        {
+            bool open = SessionState.GetBool(sessionKey, defaultOpen);
+            bool next = EditorGUILayout.Foldout(open, label, true);
+            if (next != open) SessionState.SetBool(sessionKey, next);
+            return next;
+        }
+
+        static void DrawEssential(SerializedObject serialized, QamelSettings settings)
+        {
+            EditorGUILayout.LabelField("Essential", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Paste your project API key to get started. Defaults work for most projects — " +
+                "open Optional settings below only if you need to change them.",
+                MessageType.None);
+            EditorGUILayout.Space(2);
+            DrawProperty(serialized, nameof(QamelSettings.captureEnabled));
+            DrawProperty(serialized, nameof(QamelSettings.apiKey));
+            if (string.IsNullOrWhiteSpace(settings.apiKey))
+            {
+                EditorGUILayout.HelpBox(
+                    "API key is required. Reports stay in memory until one is set.",
+                    MessageType.Warning);
+            }
+        }
+
+        static void DrawOptional(SerializedObject serialized, QamelSettings settings)
+        {
+            bool showOptional = SessionState.GetBool(ShowOptionalKey, false);
+            bool next = EditorGUILayout.Foldout(showOptional, "Optional settings", true);
+            if (next != showOptional) SessionState.SetBool(ShowOptionalKey, next);
+            if (!next) return;
+
+            EditorGUI.indentLevel++;
+
+            // Groups default open so expanding Optional is one click to a full layout;
+            // SessionState still remembers if the user collapses a section.
+            if (Foldout(FoldUploadKey, "Upload", defaultOpen: true))
+            {
+                EditorGUI.indentLevel++;
+                DrawProperty(serialized, nameof(QamelSettings.endpoint));
+                DrawEndpointWarning(settings);
+                DrawProperty(serialized, nameof(QamelSettings.uploadReports));
+                EditorGUI.indentLevel--;
+            }
+
+            if (Foldout(FoldBuildKey, "Build context", defaultOpen: true))
+            {
+                EditorGUI.indentLevel++;
+                DrawProperty(serialized, nameof(QamelSettings.buildId));
+                DrawProperty(serialized, nameof(QamelSettings.defaultParticipantKind));
+                EditorGUI.indentLevel--;
+            }
+
+            if (Foldout(FoldCaptureKey, "Capture", defaultOpen: true))
+            {
+                EditorGUI.indentLevel++;
+                DrawProperty(serialized, nameof(QamelSettings.bufferSeconds));
+                DrawProperty(serialized, nameof(QamelSettings.captureFps));
+                DrawProperty(serialized, nameof(QamelSettings.frameWidth));
+                DrawProperty(serialized, nameof(QamelSettings.jpegQuality));
+                DrawProperty(serialized, nameof(QamelSettings.frameFlip));
+                DrawProperty(serialized, nameof(QamelSettings.captureInput));
+                DrawProperty(serialized, nameof(QamelSettings.captureMousePosition));
+                EditorGUI.indentLevel--;
+            }
+
+            if (Foldout(FoldReportingKey, "Reporting", defaultOpen: true))
+            {
+                EditorGUI.indentLevel++;
+                DrawProperty(serialized, nameof(QamelSettings.reportHotkey));
+                DrawProperty(serialized, nameof(QamelSettings.useBuiltInOverlay));
+                DrawProperty(serialized, nameof(QamelSettings.pauseWhileReporting));
+                DrawProperty(serialized, nameof(QamelSettings.autoReportOnException));
+                EditorGUI.indentLevel--;
+            }
+
+            if (Foldout(FoldExperimentalKey, "Experimental", defaultOpen: true))
+            {
+                EditorGUI.indentLevel++;
+                DrawProperty(serialized, nameof(QamelSettings.continuousStreaming));
+                DrawProperty(serialized, nameof(QamelSettings.streamChunkSeconds));
+                EditorGUI.indentLevel--;
+            }
+
+            if (Foldout(FoldDiagnosticsKey, "Diagnostics", defaultOpen: true))
+            {
+                EditorGUI.indentLevel++;
+                DrawProperty(serialized, nameof(QamelSettings.checkForUpdates));
+                DrawProperty(serialized, nameof(QamelSettings.verboseLogging));
+                DrawProperty(serialized, nameof(QamelSettings.sendPluginDiagnostics));
+                EditorGUI.indentLevel--;
+            }
+
+            EditorGUI.indentLevel--;
+        }
+
         static void Draw()
         {
             EditorGUILayout.Space(8);
@@ -197,18 +309,20 @@ namespace QamelCapture.Editor
             EditorGUILayout.Space(8);
 
             var serialized = new SerializedObject(settings);
-            var property = serialized.GetIterator();
-            property.NextVisible(true); // skip m_Script
-            while (property.NextVisible(false))
-            {
-                EditorGUILayout.PropertyField(property, true);
-            }
+            serialized.Update();
+
+            DrawEssential(serialized, settings);
+            EditorGUILayout.Space(8);
+            DrawOptional(serialized, settings);
+
+            // Surface host problems even when Optional settings is collapsed.
+            if (!SessionState.GetBool(ShowOptionalKey, false))
+                DrawEndpointWarning(settings);
+
             if (serialized.ApplyModifiedProperties())
             {
                 EditorUtility.SetDirty(settings);
             }
-
-            DrawEndpointWarning(settings);
 
             EditorGUILayout.Space(8);
             EditorGUILayout.HelpBox(
