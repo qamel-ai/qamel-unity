@@ -92,12 +92,14 @@ namespace QamelCapture
                 _buffer.AddEvent(Now, SessionEvents.Identity(Now, "init", Identity));
 
                 Func<double> now = () => _clock.Elapsed.TotalSeconds;
+                // Frame recorder first so context samples can include capture health.
+                _frameRecorder = new FrameRecorder(_settings, _buffer, now);
                 // The exception hook can fire from any thread; the actual report is
                 // filed from Update on the main thread.
                 _logRecorder = new LogRecorder(_buffer, now,
-                    () => Interlocked.Exchange(ref _pendingAutoReports, 1));
+                    () => Interlocked.Exchange(ref _pendingAutoReports, 1),
+                    () => _frameRecorder.Health.Snapshot());
                 _inputRecorder = new InputRecorder(_settings, _buffer, now);
-                _frameRecorder = new FrameRecorder(_settings, _buffer, now);
                 _overlay = new ReportOverlay(_settings);
                 _overlay.Submitted += TriggerReport;
                 _overlay.Opened += Qamel.RaiseReportFormOpened;
@@ -109,6 +111,7 @@ namespace QamelCapture
                 if (_settings.continuousStreaming)
                 {
                     _streamer = new ChunkStreamer(_settings, _buffer, now, () => Identity,
+                        () => _frameRecorder.Health.Snapshot(),
                         _sessionId, _sessionStartUtc,
                         (manifest, bytes, fileName) =>
                             _mainThreadQueue.Enqueue(() => _uploader.Enqueue(manifest, bytes, fileName, isChunk: true)));
@@ -217,6 +220,7 @@ namespace QamelCapture
                     CaptureFps = _settings.captureFps,
                     Identity = Identity,
                     BuildId = _settings.buildId,
+                    CaptureHealth = _frameRecorder.Health.Snapshot(),
                 });
                 string fileName = "report_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss") + "_" + reportId + ".zip";
 

@@ -5,6 +5,7 @@ using System.IO.Compression;
 using NUnit.Framework;
 using QamelCapture;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.TestTools;
 
 namespace QamelCapture.Tests
@@ -101,10 +102,10 @@ namespace QamelCapture.Tests
         [UnityTest]
         public IEnumerator FrameRecorderProducesJpegFrames()
         {
-            if (Application.isBatchMode || !SystemInfo.supportsAsyncGPUReadback)
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null ||
+                !SystemInfo.supportsAsyncGPUReadback)
             {
-                Assert.Ignore("Headless or no AsyncGPUReadback support; frame capture is disabled by design here. " +
-                              "Run PlayMode tests from the editor GUI or verify frames via the benchmark player build.");
+                Assert.Ignore("No graphics device or AsyncGPUReadback; frame capture is disabled by design here.");
                 yield break;
             }
 
@@ -137,6 +138,47 @@ namespace QamelCapture.Tests
                 Assert.AreEqual(0xD8, frame.Jpg[1]);
                 Assert.LessOrEqual(frame.Width, 320);
                 Assert.Greater(frame.Height, 0);
+
+                var health = recorder.Health.Snapshot();
+                Assert.GreaterOrEqual(health.Attempted, 1, "health.attempted");
+                Assert.GreaterOrEqual(health.Kept, 1, "health.kept");
+                Assert.GreaterOrEqual(health.Attempted, health.Kept);
+            }
+            finally
+            {
+                recorder.Dispose();
+                Object.Destroy(host.gameObject);
+                Object.Destroy(settings);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator FrameRecorderDisposeMidCaptureDoesNotThrow()
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null ||
+                !SystemInfo.supportsAsyncGPUReadback)
+            {
+                Assert.Ignore("No graphics device or AsyncGPUReadback; frame capture is disabled by design here.");
+                yield break;
+            }
+
+            var settings = MakeSettings();
+            settings.captureFps = 30f;
+            var buffer = new SessionBuffer(60, 32);
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var host = new GameObject("QamelTestHost").AddComponent<CoroutineHost>();
+            var recorder = new FrameRecorder(settings, buffer, () => clock.Elapsed.TotalSeconds);
+            host.StartCoroutine(recorder.CaptureLoop());
+
+            try
+            {
+                yield return null;
+                yield return null;
+                recorder.Dispose();
+                // Let any in-flight readback callbacks land after dispose.
+                yield return null;
+                yield return null;
+                Assert.Pass();
             }
             finally
             {

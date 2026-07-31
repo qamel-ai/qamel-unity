@@ -30,16 +30,38 @@ namespace QamelCapture
             return j.End();
         }
 
-        public static string Context(double t, string scene, float fps, long memoryMb, float timeScale)
+        /// <summary>
+        /// ~1 Hz performance / session-health sample. Wire type stays
+        /// <c>context</c> for compatibility; dashboards may label it Performance.
+        /// </summary>
+        public static string Context(
+            double t,
+            string scene,
+            float fps,
+            float frameMsMax,
+            long memoryMb,
+            float timeScale,
+            float cpuFrameMs,
+            float gpuFrameMs,
+            CaptureHealthSnapshot capture)
         {
-            return Writer.Begin()
+            var j = Writer.Begin()
                 .Num("t", t)
                 .Str("type", "context")
                 .Str("scene", scene)
                 .Num("fps", Math.Round(fps, 1))
+                .Num("frame_ms_max", Math.Round(frameMsMax, 2))
                 .Int("memory_mb", memoryMb)
                 .Num("time_scale", timeScale)
-                .End();
+                .Int("capture_attempted", capture.Attempted)
+                .Int("capture_kept", capture.Kept)
+                .Int("capture_drop_inflight", capture.DropInflight)
+                .Int("capture_drop_encode", capture.DropEncodeQueue)
+                .Int("capture_readback_errors", capture.ReadbackErrors)
+                .Int("capture_encode_errors", capture.EncodeErrors);
+            if (cpuFrameMs >= 0f) j.Num("cpu_frame_ms", Math.Round(cpuFrameMs, 2));
+            if (gpuFrameMs >= 0f) j.Num("gpu_frame_ms", Math.Round(gpuFrameMs, 2));
+            return j.End();
         }
 
         public static string Input(double t, string action, string key)

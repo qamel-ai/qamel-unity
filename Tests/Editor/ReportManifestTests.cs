@@ -55,6 +55,12 @@ namespace QamelCapture.Tests
             Assert.AreEqual("240", parsed["event_count"]);
             Assert.AreEqual("720", parsed["frame_count"]);
             Assert.AreEqual("fell through the floor", parsed["user_text"]);
+            Assert.AreEqual("0", parsed["capture_attempted"]);
+            Assert.AreEqual("0", parsed["capture_kept"]);
+            Assert.AreEqual("0", parsed["capture_drop_inflight"]);
+            Assert.AreEqual("0", parsed["capture_drop_encode"]);
+            Assert.AreEqual("0", parsed["capture_readback_errors"]);
+            Assert.AreEqual("0", parsed["capture_encode_errors"]);
             Assert.AreEqual("build-42", parsed["build_id"]);
             Assert.AreEqual("0123456789abcdef0123456789abcdef", parsed["installation_id"]);
             Assert.AreEqual("player_7", parsed["external_player_id"]);

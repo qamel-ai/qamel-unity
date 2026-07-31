@@ -25,9 +25,15 @@ namespace QamelCapture
         readonly ISessionSink _sink;
         readonly Func<double> _now;
         readonly bool _flipAuto;
+        readonly CaptureHealthCounters _health = new CaptureHealthCounters();
+
+        /// <summary>Cumulative capture attempt / drop counters for this session.</summary>
+        public CaptureHealthCounters Health => _health;
 
         RenderTexture _fullRt;
         RenderTexture _smallRt;
+        Camera _fallbackCam;
+        GameObject _fallbackCamGo;
         int _smallW;
         int _smallH;
         long _frameIndex;
@@ -64,11 +70,12 @@ namespace QamelCapture
 
         public IEnumerator CaptureLoop()
         {
-            if (Application.isBatchMode)
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
             {
-                // Headless (batchmode/server builds): nothing is rendered and
+                // True headless / Null device: nothing is rendered and
                 // WaitForEndOfFrame never fires. Logs and input are still captured.
-                QLog.Info("Running headless; gameplay frame capture is disabled.");
+                // -batchmode with a real GPU (publish tests) still captures frames.
+                QLog.Info("No graphics device; gameplay frame capture is disabled.");
                 yield break;
             }
             if (!SystemInfo.supportsAsyncGPUReadback)
@@ -81,8 +88,14 @@ namespace QamelCapture
             float interval = 1f / Mathf.Max(1f, _settings.captureFps);
             while (!_disposed)
             {
-                // Screenshots must be taken at end of frame, after rendering.
-                yield return endOfFrame;
+                // WaitForEndOfFrame never completes under -batchmode (CLI / publish
+                // tests), so use a per-update wait there. In a normal player, wait
+                // for end-of-frame when a Game view exists so screenshots are coherent.
+                if (!Application.isBatchMode && Screen.width > 0 && Screen.height > 0)
+                    yield return endOfFrame;
+                else
+                    yield return null;
+
                 if (Time.unscaledTime < _nextCaptureAt) continue;
                 _nextCaptureAt = Time.unscaledTime + interval;
 
@@ -100,15 +113,39 @@ namespace QamelCapture
 
         void Capture()
         {
-            if (_inFlight >= MaxInFlightReadbacks) return;
+            _health.OnAttempt();
+            if (_inFlight >= MaxInFlightReadbacks)
+            {
+                _health.OnDropInflight();
+                return;
+            }
 
             int screenW = Screen.width;
             int screenH = Screen.height;
-            if (screenW <= 0 || screenH <= 0) return;
+            // Batchmode / no Game view: ScreenCapture needs a rendered frame that
+            // never arrives. Drive a tiny camera into an RT instead.
+            bool useFallbackCamera =
+                Application.isBatchMode || screenW <= 0 || screenH <= 0;
+            if (useFallbackCamera)
+            {
+                screenW = Mathf.Max(64, _settings.frameWidth) & ~1;
+                screenH = Mathf.Max(64, Mathf.RoundToInt(screenW * 9f / 16f)) & ~1;
+            }
 
             EnsureTargets(screenW, screenH);
 
-            ScreenCapture.CaptureScreenshotIntoRenderTexture(_fullRt);
+            if (useFallbackCamera)
+            {
+                EnsureFallbackCamera();
+                _fallbackCam.targetTexture = _fullRt;
+                _fallbackCam.Render();
+                _fallbackCam.targetTexture = null;
+            }
+            else
+            {
+                ScreenCapture.CaptureScreenshotIntoRenderTexture(_fullRt);
+            }
+
             var previousActive = RenderTexture.active;
             Graphics.Blit(_fullRt, _smallRt);
             RenderTexture.active = previousActive;
@@ -118,8 +155,33 @@ namespace QamelCapture
             int w = _smallW;
             int h = _smallH;
             _inFlight++;
-            AsyncGPUReadback.Request(_smallRt, 0, TextureFormat.RGBA32,
-                request => OnReadback(request, t, index, w, h));
+            if (useFallbackCamera)
+            {
+                // Async callbacks are unreliable under -batchmode PlayMode; block
+                // briefly so CLI tests and early no-Game-view seconds still keep frames.
+                var request = AsyncGPUReadback.Request(_smallRt, 0, TextureFormat.RGBA32);
+                request.WaitForCompletion();
+                OnReadback(request, t, index, w, h);
+            }
+            else
+            {
+                AsyncGPUReadback.Request(_smallRt, 0, TextureFormat.RGBA32,
+                    request => OnReadback(request, t, index, w, h));
+            }
+        }
+
+        void EnsureFallbackCamera()
+        {
+            if (_fallbackCam != null) return;
+            _fallbackCamGo = new GameObject("QamelFallbackCaptureCam");
+            UnityEngine.Object.DontDestroyOnLoad(_fallbackCamGo);
+            _fallbackCamGo.hideFlags = HideFlags.HideAndDontSave;
+            _fallbackCam = _fallbackCamGo.AddComponent<Camera>();
+            _fallbackCam.enabled = false;
+            _fallbackCam.clearFlags = CameraClearFlags.SolidColor;
+            _fallbackCam.backgroundColor = new Color(0.12f, 0.14f, 0.18f, 1f);
+            _fallbackCam.orthographic = true;
+            _fallbackCam.cullingMask = 0;
         }
 
         void EnsureTargets(int screenW, int screenH)
@@ -131,6 +193,7 @@ namespace QamelCapture
                 {
                     name = "QamelFullFrame",
                 };
+                _fullRt.Create();
             }
 
             int w = Mathf.Min(Mathf.Max(16, _settings.frameWidth), screenW) & ~1;
@@ -142,6 +205,7 @@ namespace QamelCapture
                 {
                     name = "QamelSmallFrame",
                 };
+                _smallRt.Create();
                 _smallW = w;
                 _smallH = h;
             }
@@ -150,11 +214,20 @@ namespace QamelCapture
         void OnReadback(AsyncGPUReadbackRequest request, double t, long index, int w, int h)
         {
             _inFlight = Mathf.Max(0, _inFlight - 1);
-            if (_disposed || request.hasError) return;
+            if (_disposed) return;
+            if (request.hasError)
+            {
+                _health.OnReadbackError();
+                return;
+            }
 
             var data = request.GetData<byte>();
             int length = w * h * 4;
-            if (data.Length != length) return;
+            if (data.Length != length)
+            {
+                _health.OnReadbackError();
+                return;
+            }
 
             // The native readback data is only valid during this callback; copy it
             // into a pooled buffer for the encode thread.
@@ -166,6 +239,7 @@ namespace QamelCapture
                 if (_workerStop || _jobs.Count >= MaxQueuedEncodes)
                 {
                     ReturnBufferLocked(buffer);
+                    _health.OnDropEncodeQueue();
                     return;
                 }
                 _jobs.Enqueue(new EncodeJob { Rgba = buffer, Width = w, Height = h, T = t, Index = index });
@@ -223,6 +297,7 @@ namespace QamelCapture
                 }
                 catch (Exception e)
                 {
+                    _health.OnEncodeError();
                     if (Interlocked.Increment(ref _encodeFailures) == MaxEncodeFailuresBeforeWarn)
                         QLog.Warn("Frame encoding keeps failing (" + e.Message + "); some gameplay frames will be missing.");
                 }
@@ -241,7 +316,11 @@ namespace QamelCapture
             byte[] jpg = ImageConversion.EncodeArrayToJPG(
                 job.Rgba, GraphicsFormat.R8G8B8A8_SRGB,
                 (uint)job.Width, (uint)job.Height, 0, _settings.jpegQuality);
-            if (jpg == null || jpg.Length == 0) return;
+            if (jpg == null || jpg.Length == 0)
+            {
+                _health.OnEncodeError();
+                return;
+            }
 
             _sink.AddFrame(new CapturedFrame
             {
@@ -251,6 +330,7 @@ namespace QamelCapture
                 Height = job.Height,
                 Jpg = jpg,
             });
+            _health.OnKept();
         }
 
         bool ShouldFlip()
@@ -288,6 +368,12 @@ namespace QamelCapture
             }
             Release(ref _fullRt);
             Release(ref _smallRt);
+            if (_fallbackCamGo != null)
+            {
+                UnityEngine.Object.Destroy(_fallbackCamGo);
+                _fallbackCamGo = null;
+                _fallbackCam = null;
+            }
         }
 
         static void Release(ref RenderTexture rt)

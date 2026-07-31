@@ -68,8 +68,8 @@ namespace QamelCapture
                     contentType = "application/json",
                 };
                 request.downloadHandler = new DownloadHandlerBuffer();
-                request.SetRequestHeader("Authorization", "Bearer " + settings.apiKey.Trim());
-                request.SetRequestHeader("X-Qamel-Plugin", "unity/" + QamelSettings.PluginVersion);
+                request.SetRequestHeader(IngestHeaders.Authorization, IngestHeaders.Bearer(settings.apiKey));
+                request.SetRequestHeader(IngestHeaders.Plugin, IngestHeaders.PluginValue());
                 request.timeout = RequestTimeoutSeconds;
 
                 yield return request.SendWebRequest();

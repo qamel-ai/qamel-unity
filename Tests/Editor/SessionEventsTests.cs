@@ -31,12 +31,41 @@ namespace QamelCapture.Tests
         [Test]
         public void ContextEventMatchesSpec()
         {
-            var parsed = TestJson.Parse(SessionEvents.Context(10, "Level3", 59.94f, 512, 1f));
+            var capture = new CaptureHealthSnapshot
+            {
+                Attempted = 60,
+                Kept = 58,
+                DropInflight = 1,
+                DropEncodeQueue = 1,
+                ReadbackErrors = 0,
+                EncodeErrors = 0,
+            };
+            var parsed = TestJson.Parse(SessionEvents.Context(
+                10, "Level3", 59.94f, 33.5f, 512, 1f, 8.2f, 7.1f, capture));
             Assert.AreEqual("context", parsed["type"]);
             Assert.AreEqual("Level3", parsed["scene"]);
             Assert.AreEqual("59.9", parsed["fps"]);
+            Assert.AreEqual("33.5", parsed["frame_ms_max"]);
             Assert.AreEqual("512", parsed["memory_mb"]);
             Assert.AreEqual("1", parsed["time_scale"]);
+            Assert.AreEqual("60", parsed["capture_attempted"]);
+            Assert.AreEqual("58", parsed["capture_kept"]);
+            Assert.AreEqual("1", parsed["capture_drop_inflight"]);
+            Assert.AreEqual("1", parsed["capture_drop_encode"]);
+            Assert.AreEqual("0", parsed["capture_readback_errors"]);
+            Assert.AreEqual("0", parsed["capture_encode_errors"]);
+            Assert.AreEqual("8.2", parsed["cpu_frame_ms"]);
+            Assert.AreEqual("7.1", parsed["gpu_frame_ms"]);
+        }
+
+        [Test]
+        public void ContextEventOmitsUnavailableFrameTimings()
+        {
+            var parsed = TestJson.Parse(SessionEvents.Context(
+                1, "Boot", 30f, 40f, 100, 1f, -1f, -1f, default(CaptureHealthSnapshot)));
+            Assert.IsFalse(parsed.ContainsKey("cpu_frame_ms"));
+            Assert.IsFalse(parsed.ContainsKey("gpu_frame_ms"));
+            Assert.AreEqual("0", parsed["capture_attempted"]);
         }
 
         [Test]

@@ -19,6 +19,7 @@ namespace QamelCapture
         public float CaptureFps;
         public IdentitySnapshot Identity;
         public string BuildId;
+        public CaptureHealthSnapshot CaptureHealth;
     }
 
     /// <summary>Inputs for <see cref="ReportManifest.BuildChunk"/>.</summary>
@@ -36,6 +37,7 @@ namespace QamelCapture
         public float CaptureFps;
         public IdentitySnapshot Identity;
         public string BuildId;
+        public CaptureHealthSnapshot CaptureHealth;
     }
 
     /// <summary>Builds manifest.json per the Qamel capture wire format.</summary>
@@ -63,14 +65,16 @@ namespace QamelCapture
                 .Str("report_id", data.ReportId)
                 .Str("session_started_utc", data.SessionStartedUtc.ToString("o"));
             AppendContext(json, data.Identity, data.BuildId);
-            return json
+            json
                 .Num("report_t", data.ReportT)
                 .Int("buffer_seconds", data.BufferSeconds)
                 .Num("capture_fps", data.CaptureFps)
                 .Int("frame_width", data.FrameWidth)
                 .Int("frame_height", data.FrameHeight)
                 .Int("event_count", data.EventCount)
-                .Int("frame_count", data.FrameCount)
+                .Int("frame_count", data.FrameCount);
+            AppendCaptureHealth(json, data.CaptureHealth);
+            return json
                 .Str("user_text", data.UserText ?? "")
                 .End();
         }
@@ -84,15 +88,27 @@ namespace QamelCapture
                 .Int("chunk_index", data.ChunkIndex)
                 .Str("session_started_utc", data.SessionStartedUtc.ToString("o"));
             AppendContext(json, data.Identity, data.BuildId);
-            return json
+            json = json
                 .Num("chunk_start_t", data.ChunkStartT)
                 .Num("chunk_end_t", data.ChunkEndT)
                 .Num("capture_fps", data.CaptureFps)
                 .Int("frame_width", data.FrameWidth)
                 .Int("frame_height", data.FrameHeight)
                 .Int("event_count", data.EventCount)
-                .Int("frame_count", data.FrameCount)
-                .End();
+                .Int("frame_count", data.FrameCount);
+            AppendCaptureHealth(json, data.CaptureHealth);
+            return json.End();
+        }
+
+        static void AppendCaptureHealth(QamelJson json, CaptureHealthSnapshot health)
+        {
+            json
+                .Int("capture_attempted", health.Attempted)
+                .Int("capture_kept", health.Kept)
+                .Int("capture_drop_inflight", health.DropInflight)
+                .Int("capture_drop_encode", health.DropEncodeQueue)
+                .Int("capture_readback_errors", health.ReadbackErrors)
+                .Int("capture_encode_errors", health.EncodeErrors);
         }
 
         internal static QamelJson AppendContext(

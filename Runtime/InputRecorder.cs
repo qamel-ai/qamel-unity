@@ -147,8 +147,13 @@ namespace QamelCapture
             _sink.AddEvent(t, SessionEvents.MousePos(t, normalized.x, normalized.y));
         }
 
-        void Emit(string action, string key)
+        /// <summary>
+        /// Records one key/mouse action. Used by the live pollers; also callable
+        /// from tests so we can lock buffer wiring without faking Unity input.
+        /// </summary>
+        internal void Emit(string action, string key)
         {
+            if (!_settings.captureInput) return;
             double t = _now();
             _sink.AddEvent(t, SessionEvents.Input(t, action, key));
         }

@@ -20,6 +20,7 @@ namespace QamelCapture
         readonly SessionBuffer _buffer;
         readonly Func<double> _now;
         readonly Func<IdentitySnapshot> _identity;
+        readonly Func<CaptureHealthSnapshot> _captureHealth;
         readonly string _sessionId;
         readonly DateTime _sessionStartUtc;
         readonly Action<string, byte[], string> _onBundleReady;
@@ -34,12 +35,14 @@ namespace QamelCapture
         /// </param>
         public ChunkStreamer(QamelSettings settings, SessionBuffer buffer, Func<double> now,
             Func<IdentitySnapshot> identity,
+            Func<CaptureHealthSnapshot> captureHealth,
             string sessionId, DateTime sessionStartUtc, Action<string, byte[], string> onBundleReady)
         {
             _settings = settings;
             _buffer = buffer;
             _now = now;
             _identity = identity;
+            _captureHealth = captureHealth ?? (() => default(CaptureHealthSnapshot));
             _sessionId = sessionId;
             _sessionStartUtc = sessionStartUtc;
             _onBundleReady = onBundleReady;
@@ -105,6 +108,7 @@ namespace QamelCapture
                 CaptureFps = _settings.captureFps,
                 Identity = _identity(),
                 BuildId = _settings.buildId,
+                CaptureHealth = _captureHealth(),
             });
             string fileName = "chunk_" + _sessionId.Substring(0, 8) + "_" + index.ToString("D5") + ".zip";
 
