@@ -2,7 +2,7 @@ namespace QamelCapture
 {
     /// <summary>
     /// Shared Authorization / plugin identity headers for ingest POSTs
-    /// (report, chunk, plugin-error). Kept tiny so tests can lock the wire
+    /// (report, chunk, plugin-error, plugin health). Kept tiny so tests can lock the wire
     /// format without spinning up UnityWebRequest.
     /// </summary>
     internal static class IngestHeaders

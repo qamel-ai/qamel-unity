@@ -45,7 +45,7 @@ namespace QamelCapture.Tests
                 Debug.Log("qamel-test-log-line");
                 LogAssert.Expect(LogType.Warning, "qamel-test-warning-line");
                 Debug.LogWarning("qamel-test-warning-line");
-                recorder.Tick(); // emits the first 1 Hz context sample
+                recorder.Tick(); // emits the first ~4 Hz context sample
                 yield return null;
             }
 

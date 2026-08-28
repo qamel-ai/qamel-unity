@@ -8,13 +8,13 @@ namespace QamelCapture
     /// <summary>
     /// Captures console logs and exceptions (from any thread) and samples ambient
     /// performance / session health (scene, fps, memory, capture drops, frame
-    /// timings) about once per second.
+    /// timings) about four times per second.
     /// </summary>
     internal sealed class LogRecorder : IDisposable
     {
         const int MaxMessageChars = 2000;
         const int MaxStackChars = 6000;
-        const float ContextInterval = 1f;
+        const float ContextInterval = 0.25f;
         const int MaxFrameTimings = 32;
 
         readonly ISessionSink _sink;

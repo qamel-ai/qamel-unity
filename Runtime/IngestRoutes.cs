@@ -14,6 +14,9 @@ namespace QamelCapture
         public const string ChunkPath = "/v1/chunk";
         public const string PluginErrorPath = "/v1/plugin-error";
 
+        /// <summary>Editor-only ingest key check (see the capture spec).</summary>
+        public const string HealthPath = "/v1/plugin/health";
+
         /// <summary>Editor-only version check; unauthenticated (see the capture spec).</summary>
         public const string LatestVersionPath = "/v1/plugin/latest";
 

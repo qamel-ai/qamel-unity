@@ -31,7 +31,7 @@ namespace QamelCapture
         }
 
         /// <summary>
-        /// ~1 Hz performance / session-health sample. Wire type stays
+        /// ~4 Hz performance / session-health sample. Wire type stays
         /// <c>context</c> for compatibility; dashboards may label it Performance.
         /// </summary>
         public static string Context(

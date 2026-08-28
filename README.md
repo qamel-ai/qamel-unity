@@ -29,8 +29,9 @@ both the legacy Input Manager and the Input System package.
    Unity records the exact commit in your `Packages/packages-lock.json`, so your
    version stays fixed until you update it.
 
-2. **Add your API key.** Open `Edit > Project Settings > Qamel`, click
-   *Create Qamel settings*, and paste the API key Qamel gave you.
+2. **Add your API key.** Create an ingest API key for your project at
+   [qamel.ai](https://qamel.ai), then open `Edit > Project Settings > Qamel`,
+   click *Create Qamel settings*, and paste the key.
 
 3. **Play.** Press **F8** whenever something looks wrong, optionally describe it,
    and hit *Send report* (or **Shift+Enter**). It uploads in the background, and
@@ -107,7 +108,7 @@ void OnDisable()
 | Setting | Default | |
 | ------- | ------- | ----- |
 | Capture Enabled | on | Master switch |
-| Api Key | empty | Required; the key Qamel gave you |
+| Api Key | empty | Required; create one for your project at [qamel.ai](https://qamel.ai) |
 | Endpoint | `https://ingest.qamel.ai` | Change only if Qamel gave you another host |
 | Upload Reports | on | Turn off to stop sending without disabling capture |
 | Build Id | empty | Optional CI/release build identifier used for filtering |
@@ -173,7 +174,8 @@ also works if you track a branch and just want the newest commit.
 
 **Nothing arrives.** Check the console for a `[Qamel]` warning. A missing API
 key disables capture at startup; a rejected key disables uploads for the
-session.
+session. Create or rotate keys at [qamel.ai](https://qamel.ai) under the
+project's API keys page.
 
 **Footage is upside down.** Set *Frame Flip* to the opposite value.
 
@@ -185,9 +187,10 @@ Keyboard and mouse are recorded; gamepad, touch and audio are not yet.
 
 ## License
 
-MIT, see [LICENSE.md](LICENSE.md). Using it needs a Qamel API key, which is
-where reports are analysed and grouped.
+MIT, see [LICENSE.md](LICENSE.md). Using it needs a Qamel ingest API key
+(create one at [qamel.ai](https://qamel.ai)), which is where reports are
+analysed and grouped.
 
 ---
 
-Questions or a key request: [qamel.ai](https://qamel.ai)
+Questions: [qamel.ai](https://qamel.ai)

@@ -3,7 +3,7 @@ using System;
 namespace QamelCapture
 {
     /// <summary>
-    /// Cumulative gameplay-capture counters for the session. Exposed on ~1 Hz
+    /// Cumulative gameplay-capture counters for the session. Exposed on ~4 Hz
     /// context samples and rolled into the bundle manifest so we can measure
     /// how often backpressure drops frames.
     /// </summary>

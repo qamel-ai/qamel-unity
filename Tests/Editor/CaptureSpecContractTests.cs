@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using QamelCapture;
+using QamelCapture.Editor;
 
 namespace QamelCapture.Tests
 {
@@ -104,6 +105,14 @@ namespace QamelCapture.Tests
             Assert.AreEqual("1", parsed["schema"]);
             Assert.AreEqual("plugin_error", parsed["kind"]);
             RequireKeys(parsed, "session_id", "where", "error", "stack", "engine", "plugin_version");
+        }
+
+        [Test]
+        public void PluginHealthKindMatchesSpec()
+        {
+            var parsed = TestJson.Parse(QamelHealthCheck.BuildPayload());
+            Assert.AreEqual("plugin_health", parsed["kind"]);
+            RequireKeys(parsed, "engine", "plugin", "plugin_version");
         }
 
         [Test]

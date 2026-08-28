@@ -21,6 +21,7 @@ namespace QamelCapture.Tests
             Assert.AreEqual("/v1/report", IngestRoutes.ReportPath);
             Assert.AreEqual("/v1/chunk", IngestRoutes.ChunkPath);
             Assert.AreEqual("/v1/plugin-error", IngestRoutes.PluginErrorPath);
+            Assert.AreEqual("/v1/plugin/health", IngestRoutes.HealthPath);
         }
 
         [Test]
@@ -32,6 +33,8 @@ namespace QamelCapture.Tests
                 IngestRoutes.Url("https://ingest.qamel.ai/", IngestRoutes.ReportPath));
             Assert.AreEqual("https://ingest.qamel.ai/v1/chunk",
                 IngestRoutes.Url("  https://ingest.qamel.ai//  ", IngestRoutes.ChunkPath));
+            Assert.AreEqual("https://ingest.qamel.ai/v1/plugin/health",
+                IngestRoutes.Url("https://ingest.qamel.ai/", IngestRoutes.HealthPath));
         }
 
         [Test]

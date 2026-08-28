@@ -20,6 +20,7 @@ namespace QamelCapture.Editor
         const string FoldReportingKey = "Qamel.Settings.Fold.Reporting";
         const string FoldExperimentalKey = "Qamel.Settings.Fold.Experimental";
         const string FoldDiagnosticsKey = "Qamel.Settings.Fold.Diagnostics";
+        const string DashboardUrl = "https://qamel.ai";
 
         [SettingsProvider]
         public static SettingsProvider Create()
@@ -27,7 +28,7 @@ namespace QamelCapture.Editor
             return new SettingsProvider("Project/Qamel", SettingsScope.Project)
             {
                 label = "Qamel",
-                keywords = new[] { "qamel", "capture", "bug", "report", "playtest", "qa" },
+                keywords = new[] { "qamel", "capture", "bug", "report", "playtest", "qa", "api key" },
                 guiHandler = _ => Draw(),
             };
         }
@@ -193,12 +194,55 @@ namespace QamelCapture.Editor
             return next;
         }
 
+        static void DrawHealthStatus(QamelSettings settings)
+        {
+            if (string.IsNullOrWhiteSpace(settings.apiKey) &&
+                QamelHealthCheck.Status == QamelHealthCheck.Result.Idle)
+            {
+                return;
+            }
+
+            if (QamelHealthCheck.IsChecking && EditorWindow.focusedWindow != null)
+                EditorWindow.focusedWindow.Repaint();
+
+            switch (QamelHealthCheck.Status)
+            {
+                case QamelHealthCheck.Result.Checking:
+                    EditorGUILayout.HelpBox("Checking the ingest API key…", MessageType.Info);
+                    break;
+                case QamelHealthCheck.Result.Connected:
+                    EditorGUILayout.HelpBox("Connected to Qamel. This project can receive reports.",
+                        MessageType.Info);
+                    break;
+                case QamelHealthCheck.Result.InvalidKey:
+                    EditorGUILayout.HelpBox(
+                        "This API key was rejected. Create a new ingest key at qamel.ai " +
+                        "(project > API keys) and paste it here.",
+                        MessageType.Error);
+                    DrawRetryHealth(settings);
+                    break;
+                case QamelHealthCheck.Result.Unreachable:
+                    EditorGUILayout.HelpBox(
+                        "Could not reach the ingest host to check this key. " +
+                        "Confirm the endpoint, then try again.",
+                        MessageType.Warning);
+                    DrawRetryHealth(settings);
+                    break;
+            }
+        }
+
+        static void DrawRetryHealth(QamelSettings settings)
+        {
+            if (GUILayout.Button("Check connection", GUILayout.Width(160)))
+                QamelHealthCheck.CheckNow(settings);
+        }
+
         static void DrawEssential(SerializedObject serialized, QamelSettings settings)
         {
             EditorGUILayout.LabelField("Essential", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Paste your project API key to get started. Defaults work for most projects; " +
-                "open Optional settings below only if you need to change them.",
+                "Create an ingest API key for your project at qamel.ai, then paste it here. " +
+                "Defaults work for most projects; open Optional settings below only if you need to change them.",
                 MessageType.None);
             EditorGUILayout.Space(2);
             DrawProperty(serialized, nameof(QamelSettings.captureEnabled));
@@ -206,8 +250,11 @@ namespace QamelCapture.Editor
             if (string.IsNullOrWhiteSpace(settings.apiKey))
             {
                 EditorGUILayout.HelpBox(
-                    "API key is required. Reports stay in memory until one is set.",
+                    "API key is required. Create one at qamel.ai (project > API keys). " +
+                    "Reports stay in memory until one is set.",
                     MessageType.Warning);
+                if (GUILayout.Button("Create API key at qamel.ai", GUILayout.Width(220)))
+                    Application.OpenURL(DashboardUrl);
             }
             DrawProperty(serialized, nameof(QamelSettings.reportHotkey));
         }
@@ -291,16 +338,21 @@ namespace QamelCapture.Editor
             {
                 EditorGUILayout.HelpBox(
                     "Qamel Capture is installed but not configured yet.\n" +
-                    "Create the settings asset, then paste your project API key.",
+                    "Create the settings asset, then paste an ingest API key from qamel.ai.",
                     MessageType.Info);
                 EditorGUILayout.Space(4);
-                if (GUILayout.Button("Create Qamel settings", GUILayout.Width(220)))
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    Directory.CreateDirectory(AssetDir);
-                    var asset = ScriptableObject.CreateInstance<QamelSettings>();
-                    AssetDatabase.CreateAsset(asset, AssetPath);
-                    AssetDatabase.SaveAssets();
-                    Selection.activeObject = asset;
+                    if (GUILayout.Button("Create Qamel settings", GUILayout.Width(220)))
+                    {
+                        Directory.CreateDirectory(AssetDir);
+                        var asset = ScriptableObject.CreateInstance<QamelSettings>();
+                        AssetDatabase.CreateAsset(asset, AssetPath);
+                        AssetDatabase.SaveAssets();
+                        Selection.activeObject = asset;
+                    }
+                    if (GUILayout.Button("Create API key at qamel.ai", GUILayout.Width(220)))
+                        Application.OpenURL(DashboardUrl);
                 }
                 return;
             }
@@ -322,7 +374,11 @@ namespace QamelCapture.Editor
             if (serialized.ApplyModifiedProperties())
             {
                 EditorUtility.SetDirty(settings);
+                QamelHealthCheck.OnSettingsChanged(settings);
             }
+
+            QamelHealthCheck.ObserveSettings(settings);
+            DrawHealthStatus(settings);
 
             EditorGUILayout.Space(8);
             EditorGUILayout.HelpBox(
