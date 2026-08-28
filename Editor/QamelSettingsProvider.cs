@@ -290,6 +290,10 @@ namespace QamelCapture.Editor
             if (Foldout(FoldCaptureKey, "Capture", defaultOpen: true))
             {
                 EditorGUI.indentLevel++;
+                EditorGUILayout.HelpBox(
+                    "If capture cannot keep up, Qamel skips frames instead of slowing the game. " +
+                    "Drops are counted on each report. Lower Capture Fps if footage looks choppy.",
+                    MessageType.None);
                 DrawProperty(serialized, nameof(QamelSettings.bufferSeconds));
                 DrawProperty(serialized, nameof(QamelSettings.captureFps));
                 DrawProperty(serialized, nameof(QamelSettings.frameWidth));

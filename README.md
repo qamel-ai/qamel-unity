@@ -1,8 +1,8 @@
 # Qamel for Unity
 
-Qamel turns playtest sessions into structured bug reports. It records the last
-minutes of gameplay in the background; when something goes wrong, one keypress
-sends a report to Qamel.
+Qamel turns playtest sessions into structured bug reports. It records a rolling
+window of gameplay (30 seconds by default); when something goes wrong, one
+keypress sends a report to Qamel.
 
 Each report contains:
 
@@ -113,8 +113,8 @@ void OnDisable()
 | Upload Reports | on | Turn off to stop sending without disabling capture |
 | Build Id | empty | Optional CI/release build identifier used for filtering |
 | Default Participant Kind | Unknown | Audience of packaged builds; editor sessions are Developer |
-| Buffer Seconds | 120 | How much gameplay each report covers |
-| Capture Fps / Frame Width / Jpeg Quality | 6 / 1280 / 60 | Footage quality; lower them to use less bandwidth |
+| Buffer Seconds | 30 | How much gameplay each report covers |
+| Capture Fps / Frame Width / Jpeg Quality | 24 / 1280 / 60 | Footage quality. If capture cannot keep up, frames are dropped instead of slowing the game. |
 | Frame Flip | Auto | Switch if footage arrives upside down |
 | Capture Input / Mouse Position | on | Keyboard and mouse actions (never typed text) |
 | Report Hotkey | F8 | |
@@ -125,6 +125,10 @@ void OnDisable()
 | Check For Updates | on | Daily editor-only version check, see below |
 | Verbose Logging | off | Qamel's own console output |
 | Send Plugin Diagnostics | on | Report Qamel's internal errors to Qamel; never gameplay data |
+
+Projects that already have a QamelSettings asset keep the values saved there.
+Use *Reset to defaults* in Project Settings > Qamel to pick up new package
+defaults (your API key is kept).
 
 Captured gameplay data is held in memory and uploaded to Qamel. Qamel persists
 only one random installation UUID in Unity PlayerPrefs so anonymous sessions
@@ -178,6 +182,10 @@ session. Create or rotate keys at [qamel.ai](https://qamel.ai) under the
 project's API keys page.
 
 **Footage is upside down.** Set *Frame Flip* to the opposite value.
+
+**Footage looks choppy.** Qamel skips capture frames when GPU readback or JPEG
+encode is backed up, instead of slowing the game. Drops are counted on the
+report. Lower *Capture Fps* if this happens often.
 
 **No footage, but logs and input arrive.** The platform or graphics API does not
 support async GPU readback, so Qamel skips frames rather than stalling your

@@ -10,7 +10,7 @@ namespace QamelCapture
     {
         public const string ResourceName = "QamelSettings";
         /// <summary>Kept in sync with package.json by the release script.</summary>
-        public const string PluginVersion = "0.1.7";
+        public const string PluginVersion = "0.1.8";
 
         public enum FlipMode
         {
@@ -50,11 +50,11 @@ namespace QamelCapture
         [Header("Capture")]
         [Tooltip("How many seconds of gameplay are kept in the rolling buffer and attached to each report.")]
         [Range(15, 600)]
-        public int bufferSeconds = 120;
+        public int bufferSeconds = 30;
 
-        [Tooltip("Frames captured per second for the rolling gameplay recording.")]
-        [Range(1, 15)]
-        public float captureFps = 6f;
+        [Tooltip("Frames captured per second for the rolling gameplay recording. If capture cannot keep up, Qamel skips frames instead of slowing the game.")]
+        [Range(1, 30)]
+        public float captureFps = 24f;
 
         [Tooltip("Width of captured frames in pixels; height follows the screen aspect ratio. 1280 (~720p) is readable for humans and LLMs; drop to 640 to save bandwidth.")]
         [Range(240, 1280)]
