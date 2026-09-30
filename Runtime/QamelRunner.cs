@@ -46,7 +46,21 @@ namespace QamelCapture
 
         /// <summary>True while the built-in report form is showing.</summary>
         public bool IsReportFormOpen => _overlay != null && _overlay.IsOpen;
+        internal bool HasActiveSession => !_failed && _clock != null && _buffer != null;
         internal IdentitySnapshot Identity => _identity != null ? _identity.Snapshot() : default(IdentitySnapshot);
+        internal float CurrentFramesPerSecond => _logRecorder?.CurrentFramesPerSecond ?? 0f;
+
+        internal bool TryGetCaptureHealth(out CaptureHealthSnapshot health)
+        {
+            if (_frameRecorder == null)
+            {
+                health = default(CaptureHealthSnapshot);
+                return false;
+            }
+
+            health = _frameRecorder.Health.Snapshot();
+            return true;
+        }
 
         void Awake()
         {
@@ -73,7 +87,7 @@ namespace QamelCapture
                 if (string.IsNullOrWhiteSpace(_settings.apiKey) ||
                     string.IsNullOrWhiteSpace(_settings.endpoint))
                 {
-                    Debug.LogError(QLog.Prefix + "API key or endpoint is not set -- Qamel capture is DISABLED. " +
+                    Debug.LogError(QLog.Prefix + "Capture upload key or endpoint is not set -- Qamel capture is DISABLED. " +
                                    "Set them in Project Settings > Qamel (stored in the QamelSettings asset).");
                     enabled = false;
                     return;
@@ -186,7 +200,7 @@ namespace QamelCapture
                     // Qamel. Diagnostics go to the console instead.
                     ShowToast("Bug report could not be sent.");
                     QLog.Warn("Report discarded: uploads are not configured. Qamel keeps data only in memory " +
-                              "and on the Qamel servers; set the API key in Project Settings > Qamel.");
+                              "and on the Qamel servers; set the capture upload key in Project Settings > Qamel.");
                     return;
                 }
 

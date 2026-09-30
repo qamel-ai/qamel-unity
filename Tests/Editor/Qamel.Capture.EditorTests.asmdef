@@ -4,6 +4,7 @@
     "references": [
         "Qamel.Capture",
         "Qamel.Capture.Editor",
+        "Unity.InputSystem",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

@@ -1,4 +1,5 @@
 using System.IO;
+using QamelCapture.Editor.TestAuthoring;
 using UnityEditor;
 using UnityEngine;
 
@@ -6,7 +7,7 @@ namespace QamelCapture.Editor
 {
     /// <summary>
     /// Project Settings > Qamel. Creates and edits the QamelSettings asset so setup
-    /// is: install package, paste API key, press play.
+    /// is: install package, paste capture upload key, press play.
     /// </summary>
     internal static class QamelSettingsProvider
     {
@@ -19,6 +20,7 @@ namespace QamelCapture.Editor
         const string FoldCaptureKey = "Qamel.Settings.Fold.Capture";
         const string FoldReportingKey = "Qamel.Settings.Fold.Reporting";
         const string FoldExperimentalKey = "Qamel.Settings.Fold.Experimental";
+        const string FoldExperimentalTestingKey = "Qamel.Settings.Fold.ExperimentalTesting";
         const string FoldDiagnosticsKey = "Qamel.Settings.Fold.Diagnostics";
         const string DashboardUrl = "https://qamel.ai";
 
@@ -208,7 +210,7 @@ namespace QamelCapture.Editor
             switch (QamelHealthCheck.Status)
             {
                 case QamelHealthCheck.Result.Checking:
-                    EditorGUILayout.HelpBox("Checking the ingest API key…", MessageType.Info);
+                    EditorGUILayout.HelpBox("Checking the capture upload key…", MessageType.Info);
                     break;
                 case QamelHealthCheck.Result.Connected:
                     EditorGUILayout.HelpBox("Connected to Qamel. This project can receive reports.",
@@ -216,7 +218,7 @@ namespace QamelCapture.Editor
                     break;
                 case QamelHealthCheck.Result.InvalidKey:
                     EditorGUILayout.HelpBox(
-                        "This API key was rejected. Create a new ingest key at qamel.ai " +
+                        "This capture upload key was rejected. Create a new one at qamel.ai " +
                         "(project > API keys) and paste it here.",
                         MessageType.Error);
                     DrawRetryHealth(settings);
@@ -241,19 +243,27 @@ namespace QamelCapture.Editor
         {
             EditorGUILayout.LabelField("Essential", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Create an ingest API key for your project at qamel.ai, then paste it here. " +
+                "Create a capture upload key for your project at qamel.ai, then paste it here. " +
+                "Use only the Upload captures permission because this key is included in player builds. " +
                 "Defaults work for most projects; open Optional settings below only if you need to change them.",
                 MessageType.None);
             EditorGUILayout.Space(2);
             DrawProperty(serialized, nameof(QamelSettings.captureEnabled));
-            DrawProperty(serialized, nameof(QamelSettings.apiKey));
+            SerializedProperty apiKey = serialized.FindProperty(nameof(QamelSettings.apiKey));
+            if (apiKey != null)
+            {
+                EditorGUILayout.PropertyField(
+                    apiKey,
+                    new GUIContent("Capture upload key", apiKey.tooltip),
+                    true);
+            }
             if (string.IsNullOrWhiteSpace(settings.apiKey))
             {
                 EditorGUILayout.HelpBox(
-                    "API key is required. Create one at qamel.ai (project > API keys). " +
+                    "A capture upload key is required. Create one at qamel.ai (project > API keys). " +
                     "Reports stay in memory until one is set.",
                     MessageType.Warning);
-                if (GUILayout.Button("Create API key at qamel.ai", GUILayout.Width(220)))
+                if (GUILayout.Button("Create capture upload key", GUILayout.Width(220)))
                     Application.OpenURL(DashboardUrl);
             }
             DrawProperty(serialized, nameof(QamelSettings.reportHotkey));
@@ -342,7 +352,7 @@ namespace QamelCapture.Editor
             {
                 EditorGUILayout.HelpBox(
                     "Qamel Capture is installed but not configured yet.\n" +
-                    "Create the settings asset, then paste an ingest API key from qamel.ai.",
+                    "Create the settings asset, then paste a capture upload key from qamel.ai.",
                     MessageType.Info);
                 EditorGUILayout.Space(4);
                 using (new EditorGUILayout.HorizontalScope())
@@ -355,9 +365,10 @@ namespace QamelCapture.Editor
                         AssetDatabase.SaveAssets();
                         Selection.activeObject = asset;
                     }
-                    if (GUILayout.Button("Create API key at qamel.ai", GUILayout.Width(220)))
+                    if (GUILayout.Button("Create capture upload key", GUILayout.Width(220)))
                         Application.OpenURL(DashboardUrl);
                 }
+                DrawExperimentalTesting();
                 return;
             }
 
@@ -387,7 +398,7 @@ namespace QamelCapture.Editor
             EditorGUILayout.Space(8);
             EditorGUILayout.HelpBox(
                 "Qamel keeps captured data only in memory on the device and delivers it to the " +
-                "Qamel servers. Nothing is written to the player's disk, so an API key and " +
+                "Qamel servers. Nothing is written to the player's disk, so a capture upload key and " +
                 "endpoint are required for reports to go anywhere.",
                 MessageType.None);
 
@@ -397,13 +408,45 @@ namespace QamelCapture.Editor
                 if (GUILayout.Button("Reset to defaults", GUILayout.Width(220)) &&
                     EditorUtility.DisplayDialog(
                         "Reset Qamel settings?",
-                        "Every setting goes back to its default. Your API key is kept.",
+                        "Every setting goes back to its default. Your capture upload key is kept.",
                         "Reset",
                         "Cancel"))
                 {
                     ResetToDefaults(settings);
                 }
             }
+            DrawExperimentalTesting();
+        }
+
+        static void DrawExperimentalTesting()
+        {
+            EditorGUILayout.Space(12);
+            if (!Foldout(FoldExperimentalTestingKey, "Experimental testing", defaultOpen: false))
+                return;
+
+            EditorGUILayout.HelpBox(
+                "Optional recording and replay tools for internal testing. " +
+                "Human playtest capture does not need these tools. " +
+                "This choice applies only to this project on this machine.",
+                MessageType.Info);
+            bool enabled = TestLabPreferences.IsEnabled;
+            using (new EditorGUI.DisabledScope(enabled && !TestLabSession.CanDisableExperimentalFeature))
+            {
+                bool next = EditorGUILayout.Toggle("Enable experimental testing", enabled);
+                if (next != enabled)
+                {
+                    if (next) TestLabSession.EnableExperimentalFeature();
+                    else TestLabWindow.RequestDisableExperimentalFeature();
+                }
+            }
+            if (!TestLabPreferences.IsEnabled) return;
+            if (!TestLabSession.CanDisableExperimentalFeature)
+                EditorGUILayout.HelpBox(TestLabSession.DisableBlockedMessage, MessageType.None);
+            if (GUILayout.Button("Open Test Lab", GUILayout.Width(220)))
+                TestLabWindow.Open();
+            if (ClientConnectionSession.HasPending &&
+                GUILayout.Button("Cancel pending connection", GUILayout.Width(220)))
+                ClientConnectionSession.Cancel();
         }
     }
 }

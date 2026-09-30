@@ -10,7 +10,7 @@ namespace QamelCapture
     {
         public const string ResourceName = "QamelSettings";
         /// <summary>Kept in sync with package.json by the release script.</summary>
-        public const string PluginVersion = "0.1.8";
+        public const string PluginVersion = "0.1.9";
 
         public enum FlipMode
         {
@@ -31,7 +31,7 @@ namespace QamelCapture
         public bool captureEnabled = true;
 
         [Header("Upload")]
-        [Tooltip("Ingest API key for your project. Create one at qamel.ai (project > API keys). Required: Qamel keeps data only in memory and on the Qamel servers, never on the player's disk.")]
+        [Tooltip("Capture upload key for your project. Create one at qamel.ai (project > API keys). Required: Qamel keeps data only in memory and on the Qamel servers, never on the player's disk.")]
         public string apiKey = "";
 
         [Tooltip("Qamel ingest base URL. Leave as-is unless Qamel gave you a different ingest host; request paths are versioned below this base.")]

@@ -138,6 +138,10 @@ namespace QamelCapture.Tests
                 Assert.AreEqual(0xD8, frame.Jpg[1]);
                 Assert.LessOrEqual(frame.Width, 320);
                 Assert.Greater(frame.Height, 0);
+                Assert.GreaterOrEqual(
+                    recorder.FullTargetDepthBits,
+                    16,
+                    "camera capture target must keep a depth attachment for URP RenderGraph");
 
                 var health = recorder.Health.Snapshot();
                 Assert.GreaterOrEqual(health.Attempted, 1, "health.attempted");

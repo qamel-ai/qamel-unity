@@ -29,6 +29,9 @@ namespace QamelCapture
         bool _frameTimingEnabled;
         volatile bool _disposed;
 
+        internal float CurrentFramesPerSecond =>
+            _smoothedDelta > 0.0001f ? 1f / _smoothedDelta : 0f;
+
         /// <param name="onException">
         /// Invoked whenever an unhandled exception is captured. May be called from
         /// any thread; the callback must be thread-safe.
@@ -72,7 +75,7 @@ namespace QamelCapture
 
             long memoryMb = Profiler.GetTotalAllocatedMemoryLong() / (1024 * 1024);
             if (memoryMb <= 0) memoryMb = GC.GetTotalMemory(false) / (1024 * 1024);
-            float fps = _smoothedDelta > 0.0001f ? 1f / _smoothedDelta : 0f;
+            float fps = CurrentFramesPerSecond;
             float frameMsMax = _maxDeltaInInterval * 1000f;
             _maxDeltaInInterval = 0f;
 

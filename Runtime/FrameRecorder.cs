@@ -29,6 +29,7 @@ namespace QamelCapture
 
         /// <summary>Cumulative capture attempt / drop counters for this session.</summary>
         public CaptureHealthCounters Health => _health;
+        internal int FullTargetDepthBits => _fullRt != null ? _fullRt.depth : 0;
 
         RenderTexture _fullRt;
         RenderTexture _smallRt;
@@ -46,6 +47,7 @@ namespace QamelCapture
         readonly Stack<byte[]> _bufferPool = new Stack<byte[]>();
         Thread _worker;
         bool _workerStop;
+        int _activeEncodes;
         int _encodeFailures;
         byte[] _flipRow;
 
@@ -66,6 +68,17 @@ namespace QamelCapture
             // Direct3D/Metal/Vulkan readbacks of render targets are typically
             // top-down; OpenGL is bottom-up. Overridable via settings.frameFlip.
             _flipAuto = SystemInfo.graphicsUVStartsAtTop;
+        }
+
+        internal bool IsIdle
+        {
+            get
+            {
+                lock (_workerGate)
+                {
+                    return _inFlight == 0 && _jobs.Count == 0 && _activeEncodes == 0;
+                }
+            }
         }
 
         public IEnumerator CaptureLoop()
@@ -189,7 +202,10 @@ namespace QamelCapture
             if (_fullRt == null || _fullRt.width != screenW || _fullRt.height != screenH)
             {
                 Release(ref _fullRt);
-                _fullRt = new RenderTexture(screenW, screenH, 0, RenderTextureFormat.ARGB32)
+                // URP RenderGraph requires camera output textures to have a depth
+                // attachment. Built-in rendering accepted a color-only target,
+                // which hid this incompatibility in the original fixture.
+                _fullRt = new RenderTexture(screenW, screenH, 24, RenderTextureFormat.ARGB32)
                 {
                     name = "QamelFullFrame",
                 };
@@ -289,6 +305,7 @@ namespace QamelCapture
                     while (_jobs.Count == 0 && !_workerStop) Monitor.Wait(_workerGate);
                     if (_workerStop && _jobs.Count == 0) return;
                     job = _jobs.Dequeue();
+                    _activeEncodes++;
                 }
 
                 try
@@ -304,7 +321,9 @@ namespace QamelCapture
 
                 lock (_workerGate)
                 {
+                    _activeEncodes--;
                     ReturnBufferLocked(job.Rgba);
+                    Monitor.PulseAll(_workerGate);
                 }
             }
         }

@@ -88,7 +88,7 @@ namespace QamelCapture
             else if (_retired)
                 QLog.Warn("Uploads are disabled for this session because the server retired this plugin version; captured data is discarded.");
             else
-                QLog.Warn("No API key / endpoint configured (Project Settings > Qamel); captured data is discarded. " +
+                QLog.Warn("No capture upload key or endpoint is configured (Project Settings > Qamel); captured data is discarded. " +
                           "Qamel keeps data only in memory and on the Qamel servers.");
         }
 
@@ -144,7 +144,7 @@ namespace QamelCapture
                         {
                             _authFailed = true;
                             QLog.Warn("Upload rejected (" + request.responseCode +
-                                      "). Check the API key in Project Settings > Qamel. Uploads are disabled for this session.");
+                                      "). Check the capture upload key in Project Settings > Qamel. Uploads are disabled for this session.");
                         }
                         else if (request.responseCode == 410)
                         {

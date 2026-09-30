@@ -22,7 +22,7 @@ namespace QamelCapture.Tests
         [Test]
         public void BearerHeaderTrimsAndPrefixes()
         {
-            Assert.AreEqual("Bearer qa_ing_abc", IngestHeaders.Bearer("  qa_ing_abc  "));
+            Assert.AreEqual("Bearer qa_key_abc", IngestHeaders.Bearer("  qa_key_abc  "));
             Assert.AreEqual("Bearer ", IngestHeaders.Bearer(null));
             Assert.AreEqual("Bearer ", IngestHeaders.Bearer(""));
         }

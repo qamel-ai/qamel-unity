@@ -6,3 +6,6 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Qamel.Capture.EditorTests")]
 [assembly: InternalsVisibleTo("Qamel.Capture.RuntimeTests")]
 [assembly: InternalsVisibleTo("Qamel.Capture.Benchmark")]
+[assembly: InternalsVisibleTo("Qamel.TestAuthoring.Spike.Tests")]
+[assembly: InternalsVisibleTo("Qamel.TestAuthoring.ConnectedRunHarness")]
+[assembly: InternalsVisibleTo("Qamel.Milestone5.FpsMicrogame.Tests")]
