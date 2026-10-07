@@ -976,7 +976,7 @@ namespace QamelCapture.Tests
                 Assert.AreEqual(TestStateErrorCode.IncompatibleAnchor, controller.LastStateErrorCode);
 
                 var model = TestLabWindowModel.Create(
-                    true, true, true, null, false, controller, "", "");
+                    true, true, null, false, controller, "", "");
                 Assert.IsTrue(model.ShowDraft);
                 Assert.IsTrue(model.CanClearDraft);
 

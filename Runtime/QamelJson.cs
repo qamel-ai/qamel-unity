@@ -29,9 +29,7 @@ namespace QamelCapture
             }
             else
             {
-                _sb.Append('"');
-                Escape(_sb, value);
-                _sb.Append('"');
+                AppendQuoted(_sb, value);
             }
             return this;
         }
@@ -118,6 +116,13 @@ namespace QamelCapture
                 i++;
             }
             return null; // unterminated string
+        }
+
+        internal static void AppendQuoted(StringBuilder sb, string value)
+        {
+            sb.Append('"');
+            Escape(sb, value ?? "");
+            sb.Append('"');
         }
 
         static void Escape(StringBuilder sb, string s)

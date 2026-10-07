@@ -25,6 +25,8 @@ namespace QamelCapture
         readonly DateTime _sessionStartUtc;
         readonly Action<string, byte[], string> _onBundleReady;
 
+        readonly Func<double, double, CapturedAudio> _audio;
+
         int _chunkIndex;
         double _lastFlushT;
         volatile bool _stopped;
@@ -36,8 +38,9 @@ namespace QamelCapture
         public ChunkStreamer(QamelSettings settings, SessionBuffer buffer, Func<double> now,
             Func<IdentitySnapshot> identity,
             Func<CaptureHealthSnapshot> captureHealth,
-            string sessionId, DateTime sessionStartUtc, Action<string, byte[], string> onBundleReady)
+            string sessionId, DateTime sessionStartUtc, Action<string, byte[], string> onBundleReady, Func<double, double, CapturedAudio> audio = null)
         {
+            _audio = audio;
             _settings = settings;
             _buffer = buffer;
             _now = now;
@@ -85,6 +88,7 @@ namespace QamelCapture
             double end = _now();
             _lastFlushT = end;
             int index = _chunkIndex++;
+            var audio = _audio?.Invoke(start, end);
 
             int frameW = 0, frameH = 0;
             if (frames.Count > 0)
@@ -116,7 +120,7 @@ namespace QamelCapture
             {
                 try
                 {
-                    byte[] bytes = ReportBundler.BuildBundle(manifest, events, frames);
+                    byte[] bytes = ReportBundler.BuildBundle(manifest, events, frames, audio);
                     _onBundleReady(manifest, bytes, fileName);
                 }
                 catch (Exception e)

@@ -224,7 +224,7 @@ namespace QamelCapture.Editor.TestAuthoring
             for (var index = 0; index < metrics.DeviceLayouts.Count; index++)
             {
                 if (index > 0) json.Append(',');
-                AppendQuoted(json, metrics.DeviceLayouts[index]);
+                QamelJson.AppendQuoted(json, metrics.DeviceLayouts[index]);
             }
             json.Append(']');
             json.Append('}');
@@ -287,7 +287,7 @@ namespace QamelCapture.Editor.TestAuthoring
             bool first = false)
         {
             Key(json, key, first);
-            AppendQuoted(json, value);
+            QamelJson.AppendQuoted(json, value);
         }
 
         static void Number(
@@ -309,38 +309,8 @@ namespace QamelCapture.Editor.TestAuthoring
         static void Key(StringBuilder json, string key, bool first)
         {
             if (!first) json.Append(',');
-            AppendQuoted(json, key);
+            QamelJson.AppendQuoted(json, key);
             json.Append(':');
-        }
-
-        static void AppendQuoted(StringBuilder json, string value)
-        {
-            json.Append('"');
-            string safe = value ?? "";
-            for (var index = 0; index < safe.Length; index++)
-            {
-                char character = safe[index];
-                switch (character)
-                {
-                    case '"': json.Append("\\\""); break;
-                    case '\\': json.Append("\\\\"); break;
-                    case '\n': json.Append("\\n"); break;
-                    case '\r': json.Append("\\r"); break;
-                    case '\t': json.Append("\\t"); break;
-                    default:
-                        if (character < 0x20)
-                        {
-                            json.Append("\\u");
-                            json.Append(((int)character).ToString("x4", CultureInfo.InvariantCulture));
-                        }
-                        else
-                        {
-                            json.Append(character);
-                        }
-                        break;
-                }
-            }
-            json.Append('"');
         }
     }
 }

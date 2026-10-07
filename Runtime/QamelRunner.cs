@@ -22,6 +22,8 @@ namespace QamelCapture
         FrameRecorder _frameRecorder;
         LogRecorder _logRecorder;
         InputRecorder _inputRecorder;
+        ActionRecorder _actionRecorder;
+        GameAudioRecorder _audioRecorder;
         ReportOverlay _overlay;
         Uploader _uploader;
         ChunkStreamer _streamer;
@@ -81,6 +83,9 @@ namespace QamelCapture
                     return;
                 }
 
+#if !UNITY_EDITOR
+                if (!_settings.includeInPlayerBuild) { enabled = false; return; }
+#endif
                 // No key means nothing can ever be uploaded, and Qamel keeps no
                 // data on disk -- capturing would only burn memory. Fail loudly
                 // so a missing key can't slip into a playtest build unnoticed.
@@ -115,6 +120,8 @@ namespace QamelCapture
                     () => _frameRecorder.Health.Snapshot());
                 _inputRecorder = new InputRecorder(_settings, _buffer, now);
                 _overlay = new ReportOverlay(_settings);
+                _actionRecorder = new ActionRecorder(_buffer, now, () => _settings.captureInput && !_overlay.IsOpen);
+                if (_settings.captureAudio) _audioRecorder = new GameAudioRecorder(now, _settings.bufferSeconds);
                 _overlay.Submitted += TriggerReport;
                 _overlay.Opened += Qamel.RaiseReportFormOpened;
                 _overlay.Closed += Qamel.RaiseReportFormClosed;
@@ -128,7 +135,8 @@ namespace QamelCapture
                         () => _frameRecorder.Health.Snapshot(),
                         _sessionId, _sessionStartUtc,
                         (manifest, bytes, fileName) =>
-                            _mainThreadQueue.Enqueue(() => _uploader.Enqueue(manifest, bytes, fileName, isChunk: true)));
+                            _mainThreadQueue.Enqueue(() => _uploader.Enqueue(manifest, bytes, fileName, isChunk: true)),
+                        (start, end) => _audioRecorder?.Snapshot(start, end));
                     StartCoroutine(_streamer.StreamLoop());
                 }
 
@@ -151,6 +159,7 @@ namespace QamelCapture
                     TryAutoReport();
 
                 _logRecorder.Tick();
+                _audioRecorder?.Tick();
                 if (!_overlay.IsOpen) _inputRecorder.Tick();
                 _overlay.Tick();
 
@@ -211,6 +220,7 @@ namespace QamelCapture
                 var eventLines = new List<string>();
                 var frames = new List<CapturedFrame>();
                 _buffer.Snapshot(eventLines, frames);
+                var audio = _audioRecorder?.Snapshot(frames.Count > 0 ? frames[0].T : Math.Max(0, t - _settings.bufferSeconds), t);
 
                 int frameW = 0, frameH = 0;
                 if (frames.Count > 0)
@@ -243,7 +253,7 @@ namespace QamelCapture
                 {
                     try
                     {
-                        byte[] bytes = ReportBundler.BuildBundle(manifest, eventLines, frames);
+                        byte[] bytes = ReportBundler.BuildBundle(manifest, eventLines, frames, audio);
                         _mainThreadQueue.Enqueue(() =>
                         {
                             _uploader.Enqueue(manifest, bytes, fileName, isChunk: false);
@@ -382,6 +392,8 @@ namespace QamelCapture
         void Cleanup()
         {
             _streamer?.Stop();
+            _actionRecorder?.Dispose();
+            _audioRecorder?.Dispose();
             _logRecorder?.Dispose();
             _frameRecorder?.Dispose();
             _overlay?.Close();

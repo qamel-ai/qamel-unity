@@ -23,6 +23,7 @@ namespace QamelCapture.Editor
             Checking,
             Connected,
             InvalidKey,
+            UnverifiedKey,
             Unreachable,
         }
 
@@ -136,11 +137,13 @@ namespace QamelCapture.Editor
                 long status = request.responseCode;
                 bool ok = request.result == UnityWebRequest.Result.Success &&
                           status >= 200 && status < 300;
+                string responseBody = request.downloadHandler.text;
                 request.Dispose();
 
                 if (ok)
                 {
-                    Status = Result.Connected;
+                    Status = QamelPlayerBuildGuard.IsCaptureOnlyResponse(status, responseBody)
+                        ? Result.Connected : Result.UnverifiedKey;
                     return;
                 }
 

@@ -23,7 +23,7 @@ namespace QamelCapture
         }
 
         /// <summary>Builds the zip (manifest, logs.jsonl, frames/) and returns its bytes.</summary>
-        public static byte[] BuildBundle(string manifestJson, List<string> eventLines, List<CapturedFrame> frames)
+        public static byte[] BuildBundle(string manifestJson, List<string> eventLines, List<CapturedFrame> frames, CapturedAudio audio = null)
         {
             using (var memory = new MemoryStream(EstimateSize(eventLines, frames)))
             {
@@ -34,6 +34,14 @@ namespace QamelCapture
                     var logs = new StringBuilder(eventLines.Count * 96);
                     foreach (var line in eventLines) logs.Append(line).Append('\n');
                     WriteTextEntry(zip, "logs.jsonl", logs.ToString(), CompressionLevel.Optimal);
+
+                    if (audio != null)
+                    {
+                        WriteTextEntry(zip, "audio.json", audio.Metadata(), CompressionLevel.Optimal);
+                        var entry = zip.CreateEntry("audio.wav", CompressionLevel.NoCompression);
+                        byte[] wav = audio.Wav();
+                        using (var stream = entry.Open()) stream.Write(wav, 0, wav.Length);
+                    }
 
                     foreach (var frame in frames)
                     {

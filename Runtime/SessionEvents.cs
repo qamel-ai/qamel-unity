@@ -64,6 +64,13 @@ namespace QamelCapture
             return j.End();
         }
 
+        public static string InputAction(double t, string id, string name, string map, string phase, string control)
+        {
+            return Writer.Begin().Num("t", t).Str("type", "input_action")
+                .Str("action_id", id).Str("action_name", name).Str("action_map", map)
+                .Str("phase", phase).Str("control", control).End();
+        }
+
         public static string Input(double t, string action, string key)
         {
             return Writer.Begin()

@@ -46,7 +46,6 @@ namespace QamelCapture.Editor.TestAuthoring
 
             var controller = TestLabSession.Controller;
             var model = TestLabWindowModel.Create(
-                TestLabPreferences.IsEnabled,
                 EditorApplication.isPlaying,
                 TestLabSession.InputAvailable,
                 TestLabSession.InputUnavailableReason,
@@ -931,9 +930,6 @@ namespace QamelCapture.Editor.TestAuthoring
         {
             switch (action)
             {
-                case TestLabPrimaryAction.Enable:
-                    TestLabSession.EnableExperimentalFeature();
-                    break;
                 case TestLabPrimaryAction.EnterPlayMode:
                     EditorApplication.isPlaying = true;
                     break;

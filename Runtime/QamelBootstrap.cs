@@ -21,6 +21,9 @@ namespace QamelCapture
             }
 
             if (!settings.captureEnabled) return;
+#if !UNITY_EDITOR
+            if (!settings.includeInPlayerBuild) return;
+#endif
             if (QamelRunner.Instance != null) return;
 
             var host = new GameObject("[QamelCapture]")

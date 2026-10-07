@@ -5,7 +5,6 @@ namespace QamelCapture.Editor.TestAuthoring
     internal enum TestLabPrimaryAction
     {
         None,
-        Enable,
         EnterPlayMode,
         CaptureState,
         CreateDraft,
@@ -29,7 +28,6 @@ namespace QamelCapture.Editor.TestAuthoring
         public bool CanClearDraft;
 
         public static TestLabWindowModel Create(
-            bool featureEnabled,
             bool isPlaying,
             bool inputAvailable,
             string inputUnavailableReason,
@@ -38,14 +36,6 @@ namespace QamelCapture.Editor.TestAuthoring
             string draftName,
             string expectedOutcome)
         {
-            if (!featureEnabled)
-            {
-                return EnabledAction(
-                    "Experimental Test Lab",
-                    "Enable the local, session-only recorded-test authoring trial for this project.",
-                    "Enable experimental Test Lab",
-                    TestLabPrimaryAction.Enable);
-            }
             if (!isPlaying)
             {
                 return EnabledAction(

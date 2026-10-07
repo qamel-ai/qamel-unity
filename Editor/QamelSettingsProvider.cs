@@ -223,6 +223,13 @@ namespace QamelCapture.Editor
                         MessageType.Error);
                     DrawRetryHealth(settings);
                     break;
+                case QamelHealthCheck.Result.UnverifiedKey:
+                    EditorGUILayout.HelpBox(
+                        "This server has not confirmed capture-only access. Player builds will be blocked. " +
+                        "Use a capture upload key from your project's API keys page and an updated ingest server.",
+                        MessageType.Error);
+                    DrawRetryHealth(settings);
+                    break;
                 case QamelHealthCheck.Result.Unreachable:
                     EditorGUILayout.HelpBox(
                         "Could not reach the ingest host to check this key. " +
@@ -249,6 +256,7 @@ namespace QamelCapture.Editor
                 MessageType.None);
             EditorGUILayout.Space(2);
             DrawProperty(serialized, nameof(QamelSettings.captureEnabled));
+            DrawProperty(serialized, nameof(QamelSettings.includeInPlayerBuild));
             SerializedProperty apiKey = serialized.FindProperty(nameof(QamelSettings.apiKey));
             if (apiKey != null)
             {
@@ -311,6 +319,7 @@ namespace QamelCapture.Editor
                 DrawProperty(serialized, nameof(QamelSettings.frameFlip));
                 DrawProperty(serialized, nameof(QamelSettings.captureInput));
                 DrawProperty(serialized, nameof(QamelSettings.captureMousePosition));
+                DrawProperty(serialized, nameof(QamelSettings.captureAudio));
                 EditorGUI.indentLevel--;
             }
 

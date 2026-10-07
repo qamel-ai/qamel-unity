@@ -104,24 +104,19 @@ namespace QamelCapture.Tests
         [Test]
         public void EveryUnavailablePrimaryActionExplainsItsPrerequisite()
         {
-            var disabled = TestLabWindowModel.Create(
-                false, false, true, null, false, null, "", "");
-            Assert.AreEqual(TestLabPrimaryAction.Enable, disabled.PrimaryAction);
-            Assert.IsTrue(disabled.PrimaryEnabled);
-
             var editMode = TestLabWindowModel.Create(
-                true, false, true, null, false, null, "", "");
+                false, true, null, false, null, "", "");
             Assert.AreEqual(TestLabPrimaryAction.EnterPlayMode, editMode.PrimaryAction);
             Assert.IsTrue(editMode.PrimaryEnabled);
 
             var unsupported = TestLabWindowModel.Create(
-                true, true, false, "Input System is disabled.", false, null, "", "");
+                true, false, "Input System is disabled.", false, null, "", "");
             Assert.AreEqual(TestLabPrimaryAction.CaptureState, unsupported.PrimaryAction);
             Assert.IsFalse(unsupported.PrimaryEnabled);
             StringAssert.Contains("Input System", unsupported.DisabledReason);
 
             var missingProvider = TestLabWindowModel.Create(
-                true, true, true, null, false, null, "", "");
+                true, true, null, false, null, "", "");
             Assert.AreEqual(TestLabPrimaryAction.CaptureState, missingProvider.PrimaryAction);
             Assert.IsFalse(missingProvider.PrimaryEnabled);
             StringAssert.Contains("IQamelTestStateProvider", missingProvider.DisabledReason);
@@ -138,7 +133,7 @@ namespace QamelCapture.Tests
                 controller.CaptureStartingState(1);
 
                 var readyToDemonstrate = TestLabWindowModel.Create(
-                    true, true, true, null, true, controller, "", "");
+                    true, true, null, true, controller, "", "");
                 Assert.AreEqual("Ready to demonstrate", readyToDemonstrate.Title);
                 Assert.AreEqual(TestLabPrimaryAction.None, readyToDemonstrate.PrimaryAction);
                 Assert.IsFalse(readyToDemonstrate.PrimaryEnabled);
@@ -147,7 +142,7 @@ namespace QamelCapture.Tests
                 provider.HoldRestore = true;
                 Assert.IsTrue(controller.StartDemonstration(1), controller.LastError);
                 var preparing = TestLabWindowModel.Create(
-                    true, true, true, null, true, controller, "", "");
+                    true, true, null, true, controller, "", "");
                 Assert.AreEqual("Preparing starting state", preparing.Title);
                 Assert.AreEqual(TestLabPrimaryAction.None, preparing.PrimaryAction);
                 Assert.IsFalse(preparing.PrimaryEnabled);
@@ -157,19 +152,19 @@ namespace QamelCapture.Tests
                 controller.Tick(0);
 
                 var noName = TestLabWindowModel.Create(
-                    true, true, true, null, true, controller, "", "Door opens");
+                    true, true, null, true, controller, "", "Door opens");
                 Assert.AreEqual(TestLabPrimaryAction.CreateDraft, noName.PrimaryAction);
                 Assert.IsTrue(noName.ShowDraftForm);
                 Assert.IsFalse(noName.PrimaryEnabled);
                 StringAssert.Contains("name", noName.DisabledReason);
 
                 var noOutcome = TestLabWindowModel.Create(
-                    true, true, true, null, true, controller, "Open door", "");
+                    true, true, null, true, controller, "Open door", "");
                 Assert.IsFalse(noOutcome.PrimaryEnabled);
                 StringAssert.Contains("true", noOutcome.DisabledReason);
 
                 var ready = TestLabWindowModel.Create(
-                    true, true, true, null, true, controller,
+                    true, true, null, true, controller,
                     "Open door", "The door opens");
                 Assert.IsTrue(ready.PrimaryEnabled);
 
@@ -179,7 +174,7 @@ namespace QamelCapture.Tests
                 Assert.AreEqual("The door opens", draft.ExpectedOutcome);
 
                 var draftReady = TestLabWindowModel.Create(
-                    true, true, true, null, true, controller, "", "");
+                    true, true, null, true, controller, "", "");
                 Assert.AreEqual(TestLabPrimaryAction.Replay, draftReady.PrimaryAction);
                 Assert.AreEqual("Replay draft locally", draftReady.PrimaryLabel);
                 Assert.IsTrue(draftReady.PrimaryEnabled);
@@ -450,7 +445,7 @@ namespace QamelCapture.Tests
                 Assert.IsTrue(controller.StartReplay(1, 5, 0));
 
                 var settling = TestLabWindowModel.Create(
-                    true, true, true, null, true, controller, "", "");
+                    true, true, null, true, controller, "", "");
                 Assert.AreEqual(TestLabPrimaryAction.CancelRun, settling.PrimaryAction);
                 Assert.IsTrue(settling.PrimaryEnabled);
                 Assert.IsTrue(settling.ShowRun);
@@ -462,7 +457,7 @@ namespace QamelCapture.Tests
                 controller.Tick(0.25f);
 
                 var review = TestLabWindowModel.Create(
-                    true, true, true, null, true, controller, "", "");
+                    true, true, null, true, controller, "", "");
                 Assert.IsTrue(review.ShowReview);
                 Assert.IsTrue(review.ShowDraft);
                 Assert.IsFalse(review.PrimaryEnabled);
@@ -471,7 +466,7 @@ namespace QamelCapture.Tests
                 Assert.IsTrue(controller.RecordHumanVerdict(
                     TestHumanVerdict.CouldNotTell, "Needs another look."));
                 var readyAgain = TestLabWindowModel.Create(
-                    true, true, true, null, true, controller, "", "");
+                    true, true, null, true, controller, "", "");
                 Assert.AreEqual(TestLabPrimaryAction.Replay, readyAgain.PrimaryAction);
                 Assert.AreEqual("Replay draft locally again", readyAgain.PrimaryLabel);
                 Assert.IsTrue(readyAgain.PrimaryEnabled);

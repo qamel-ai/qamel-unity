@@ -3,7 +3,8 @@
     "rootNamespace": "QamelCapture.Tests",
     "references": [
         "Qamel.Capture",
-        "UnityEngine.TestRunner"
+        "UnityEngine.TestRunner",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
