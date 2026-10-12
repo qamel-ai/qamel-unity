@@ -10,7 +10,7 @@ namespace QamelCapture
     {
         public const string ResourceName = "QamelSettings";
         /// <summary>Kept in sync with package.json by the release script.</summary>
-        public const string PluginVersion = "0.1.10";
+        public const string PluginVersion = "0.1.11";
 
         public enum FlipMode
         {
@@ -30,11 +30,11 @@ namespace QamelCapture
         [Tooltip("Master switch. When off, Qamel does nothing at runtime.")]
         public bool captureEnabled = true;
 
-        [Tooltip("Explicitly include capture and its upload key in packaged player builds. Editor capture works independently.")]
+        [Tooltip("Explicitly include capture and its play key in packaged player builds. Editor capture works independently.")]
         public bool includeInPlayerBuild = false;
 
         [Header("Upload")]
-        [Tooltip("Capture-only upload key, included in player builds and verified before each build. Never use a key with Test Lab permissions. Create one at qamel.ai (project > API keys). Required: Qamel keeps data only in memory and on the Qamel servers, never on the player's disk.")]
+        [Tooltip("Play key for this project, included in player builds and checked before each build. Create one at qamel.ai (project > Play keys). Qamel keeps data only in memory and on the Qamel servers, never on the player's disk.")]
         public string apiKey = "";
 
         [Tooltip("Qamel ingest base URL. Leave as-is unless Qamel gave you a different ingest host; request paths are versioned below this base.")]

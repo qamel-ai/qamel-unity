@@ -1,5 +1,6 @@
 using System;
 using NUnit.Framework;
+using QamelCapture.Editor;
 using QamelCapture.Editor.TestAuthoring;
 using UnityEditor;
 using UnityEngine;
@@ -48,6 +49,23 @@ namespace QamelCapture.Tests
             Assert.AreEqual(_endpoint, TestLabPreferences.AuthoringEndpoint);
             Assert.AreEqual(_apiKey, TestLabPreferences.AuthoringApiKey);
             StringAssert.Contains("Project Settings > Qamel", TestLabLaunch.Status);
+        }
+
+        [Test]
+        public void CaptureSettingsLinkWorksWithoutExperimentalOptIn()
+        {
+            try
+            {
+                TestLabLaunch.Open(new Uri(Prefix + "settings/"));
+                Assert.IsFalse(TestLabPreferences.IsEnabled);
+                Assert.AreEqual(_launchStatus, TestLabLaunch.Status);
+                Assert.AreEqual(_pendingConnection, TestLabPreferences.PendingConnection);
+            }
+            finally
+            {
+                // The live UI check opens the window; this batch test checks routing.
+                EditorApplication.delayCall -= QamelSettingsLink.OpenSettings;
+            }
         }
 
         [Test]

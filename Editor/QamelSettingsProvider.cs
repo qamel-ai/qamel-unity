@@ -7,7 +7,7 @@ namespace QamelCapture.Editor
 {
     /// <summary>
     /// Project Settings > Qamel. Creates and edits the QamelSettings asset so setup
-    /// is: install package, paste capture upload key, press play.
+    /// is: install package, paste play key, press play.
     /// </summary>
     internal static class QamelSettingsProvider
     {
@@ -210,7 +210,7 @@ namespace QamelCapture.Editor
             switch (QamelHealthCheck.Status)
             {
                 case QamelHealthCheck.Result.Checking:
-                    EditorGUILayout.HelpBox("Checking the capture upload key…", MessageType.Info);
+                    EditorGUILayout.HelpBox("Checking the play key…", MessageType.Info);
                     break;
                 case QamelHealthCheck.Result.Connected:
                     EditorGUILayout.HelpBox("Connected to Qamel. This project can receive reports.",
@@ -218,15 +218,15 @@ namespace QamelCapture.Editor
                     break;
                 case QamelHealthCheck.Result.InvalidKey:
                     EditorGUILayout.HelpBox(
-                        "This capture upload key was rejected. Create a new one at qamel.ai " +
-                        "(project > API keys) and paste it here.",
+                        "This play key was rejected. Create a new one at qamel.ai " +
+                        "(project > Play keys) and paste it here.",
                         MessageType.Error);
                     DrawRetryHealth(settings);
                     break;
                 case QamelHealthCheck.Result.UnverifiedKey:
                     EditorGUILayout.HelpBox(
                         "This server has not confirmed capture-only access. Player builds will be blocked. " +
-                        "Use a capture upload key from your project's API keys page and an updated ingest server.",
+                        "Use a play key from your project's Play keys page and an updated ingest server.",
                         MessageType.Error);
                     DrawRetryHealth(settings);
                     break;
@@ -250,8 +250,7 @@ namespace QamelCapture.Editor
         {
             EditorGUILayout.LabelField("Essential", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Create a capture upload key for your project at qamel.ai, then paste it here. " +
-                "Use only the Upload captures permission because this key is included in player builds. " +
+                "Create a play key for your project at qamel.ai, then paste it here. " +
                 "Defaults work for most projects; open Optional settings below only if you need to change them.",
                 MessageType.None);
             EditorGUILayout.Space(2);
@@ -262,16 +261,16 @@ namespace QamelCapture.Editor
             {
                 EditorGUILayout.PropertyField(
                     apiKey,
-                    new GUIContent("Capture upload key", apiKey.tooltip),
+                    new GUIContent("Play key", apiKey.tooltip),
                     true);
             }
             if (string.IsNullOrWhiteSpace(settings.apiKey))
             {
                 EditorGUILayout.HelpBox(
-                    "A capture upload key is required. Create one at qamel.ai (project > API keys). " +
+                    "A play key is required. Create one at qamel.ai (project > Play keys). " +
                     "Reports stay in memory until one is set.",
                     MessageType.Warning);
-                if (GUILayout.Button("Create capture upload key", GUILayout.Width(220)))
+                if (GUILayout.Button("Create play key", GUILayout.Width(220)))
                     Application.OpenURL(DashboardUrl);
             }
             DrawProperty(serialized, nameof(QamelSettings.reportHotkey));
@@ -361,7 +360,7 @@ namespace QamelCapture.Editor
             {
                 EditorGUILayout.HelpBox(
                     "Qamel Capture is installed but not configured yet.\n" +
-                    "Create the settings asset, then paste a capture upload key from qamel.ai.",
+                    "Create the settings asset, then paste a play key from qamel.ai.",
                     MessageType.Info);
                 EditorGUILayout.Space(4);
                 using (new EditorGUILayout.HorizontalScope())
@@ -374,7 +373,7 @@ namespace QamelCapture.Editor
                         AssetDatabase.SaveAssets();
                         Selection.activeObject = asset;
                     }
-                    if (GUILayout.Button("Create capture upload key", GUILayout.Width(220)))
+                    if (GUILayout.Button("Create play key", GUILayout.Width(220)))
                         Application.OpenURL(DashboardUrl);
                 }
                 DrawExperimentalTesting();
@@ -407,7 +406,7 @@ namespace QamelCapture.Editor
             EditorGUILayout.Space(8);
             EditorGUILayout.HelpBox(
                 "Qamel keeps captured data only in memory on the device and delivers it to the " +
-                "Qamel servers. Nothing is written to the player's disk, so a capture upload key and " +
+                "Qamel servers. Nothing is written to the player's disk, so a play key and " +
                 "endpoint are required for reports to go anywhere.",
                 MessageType.None);
 
@@ -417,7 +416,7 @@ namespace QamelCapture.Editor
                 if (GUILayout.Button("Reset to defaults", GUILayout.Width(220)) &&
                     EditorUtility.DisplayDialog(
                         "Reset Qamel settings?",
-                        "Every setting goes back to its default. Your capture upload key is kept.",
+                        "Every setting goes back to its default. Your play key is kept.",
                         "Reset",
                         "Cancel"))
                 {

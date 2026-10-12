@@ -57,6 +57,7 @@ namespace QamelCapture.Editor.TestAuthoring
 #endif
         public static void Open(Uri uri)
         {
+            if (QamelSettingsLink.Handle(uri)) return;
             if (!TestLabPreferences.IsEnabled)
             {
                 SetStatus(TestLabPreferences.DisabledMessage);
