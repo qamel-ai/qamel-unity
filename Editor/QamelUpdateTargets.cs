@@ -72,6 +72,16 @@ namespace QamelCapture.Editor
             return hash < 0 ? gitUrl : gitUrl.Substring(0, hash);
         }
 
+        internal static bool SupportsAutomaticGitUpdate(string gitUrl, string requestedRevision)
+        {
+            string url = StripRevision(gitUrl ?? "").Trim().TrimEnd('/');
+            if (!url.Equals("https://github.com/qamel-ai/qamel-unity.git", System.StringComparison.OrdinalIgnoreCase) &&
+                !url.Equals("https://github.com/qamel-ai/qamel-unity", System.StringComparison.OrdinalIgnoreCase)) return false;
+            string revision = (requestedRevision ?? "").Trim();
+            if (revision.Length == 0) revision = RevisionOf(gitUrl);
+            return revision.Length == 0 || (QamelVersion.TryParse(revision, out var parsed) && !parsed.PreRelease);
+        }
+
         static bool LooksLikeVersion(string revision)
         {
             return QamelVersion.TryParse(revision, out _);

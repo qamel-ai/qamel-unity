@@ -7,180 +7,231 @@ using UnityEngine.Networking;
 namespace QamelCapture.Editor
 {
     /// <summary>
-    /// Tells the developer when a newer plugin version exists.
-    ///
-    /// Unity's Package Manager offers no update for a git dependency: it resolves
-    /// once and the consumer's lockfile pins that commit, so without this a studio
-    /// stays on whatever they first installed. The check asks the configured ingest
-    /// endpoint (so self-hosted hosts answer for their own users) and falls back to
-    /// the public repo's manifest. It is editor-only, runs at most once a day,
-    /// sends no key and no identifiers, and fails silently: a version check must
-    /// never interrupt anyone's work.
+    /// Editor-only release checks. The published package is authoritative: a
+    /// website deployment can lag behind a package release. No credentials or
+    /// project data are sent. Cache and dismissal state belong to this project.
     /// </summary>
     internal static class QamelUpdateCheck
     {
-        const string LastCheckedKey = "Qamel.UpdateCheck.LastCheckedTicks";
-        const string LatestKey = "Qamel.UpdateCheck.Latest";
-        const string MinSupportedKey = "Qamel.UpdateCheck.MinSupported";
-        const string NotesUrlKey = "Qamel.UpdateCheck.NotesUrl";
-        const string AnnouncedKey = "Qamel.UpdateCheck.Announced";
-        const string SkippedKey = "Qamel.UpdateCheck.Skipped";
-
-        const double CheckIntervalHours = 24;
-        const int TimeoutSeconds = 10;
-
-        /// <summary>
-        /// Used when the ingest host cannot be reached (a studio behind a proxy
-        /// that only allows github.com, or an endpoint typo).
-        /// </summary>
-        const string ManifestFallbackUrl =
+        internal const string PublishedManifestUrl =
             "https://raw.githubusercontent.com/qamel-ai/qamel-unity/main/package.json";
+        const string ChangesUrl = "https://github.com/qamel-ai/qamel-unity/commits/main";
+        const int TimeoutSeconds = 10;
+        const double RetrySeconds = 600;
+        static double _nextTick;
+        static double _retryAt;
+        static double _idleSince = -1;
+        static bool _manualResult;
 
-        const string ReleasesUrl = "https://github.com/qamel-ai/qamel-unity/releases";
+        internal static string ProjectKey(string field) =>
+            "Qamel.UpdateCheck.V2." + Hash128.Compute(Application.dataPath) + "." + field;
 
-        public static string InstalledVersion => QamelSettings.PluginVersion;
-        public static string LatestVersion => EditorPrefs.GetString(LatestKey, "");
-        public static string MinSupportedVersion => EditorPrefs.GetString(MinSupportedKey, "");
-        public static string SkippedVersion => EditorPrefs.GetString(SkippedKey, "");
-
-        public static string NotesUrl
-        {
-            get
-            {
-                string stored = EditorPrefs.GetString(NotesUrlKey, "");
-                return stored.Length > 0 ? stored : ReleasesUrl;
-            }
-        }
-
-        /// <summary>True while a request is in flight, so the UI can say so.</summary>
+        public static string InstalledVersion =>
+            QamelPackageUpdater.Installed?.version ?? QamelSettings.PluginVersion;
+        public static string LatestVersion => EditorPrefs.GetString(ProjectKey("Latest"), "");
+        public static string MinSupportedVersion => EditorPrefs.GetString(ProjectKey("MinSupported"), "");
+        public static string SkippedVersion => EditorPrefs.GetString(ProjectKey("Skipped"), "");
+        public static bool ReleaseVerified => EditorPrefs.GetBool(ProjectKey("Verified"), false);
+        public static string NotesUrl => ChangeHistoryUrl(LatestVersion);
         public static bool IsChecking { get; private set; }
-
-        /// <summary>Last failure, shown only when the developer asked for a check.</summary>
         public static string LastError { get; private set; }
-
-        public static bool UpdateAvailable =>
-            QamelVersion.IsNewer(LatestVersion, InstalledVersion) &&
-            !string.Equals(SkippedVersion, LatestVersion, StringComparison.Ordinal);
-
-        /// <summary>
-        /// The installed version is older than the oldest one Qamel still
-        /// supports. Advisory on purpose: capture keeps working, and ingest is
-        /// what actually retires a wire format (410).
-        /// </summary>
+        public static string LastResult { get; private set; }
+        public static bool UpdateAvailable => QamelVersion.IsNewer(LatestVersion, InstalledVersion);
+        public static bool IsSkipped => string.Equals(SkippedVersion, LatestVersion, StringComparison.Ordinal);
+        public static bool ShowUpdate => UpdateAvailable && (!IsSkipped || _manualResult);
         public static bool InstalledVersionUnsupported =>
             QamelVersion.IsNewer(MinSupportedVersion, InstalledVersion);
 
         public static void SkipCurrentLatest()
         {
-            string latest = LatestVersion;
-            if (latest.Length > 0) EditorPrefs.SetString(SkippedKey, latest);
+            if (LatestVersion.Length > 0) EditorPrefs.SetString(ProjectKey("Skipped"), LatestVersion);
+            _manualResult = false;
         }
 
         [InitializeOnLoadMethod]
         static void ScheduleAutomaticCheck()
         {
-            // Batch mode is CI and our own headless test runs: never phone home
-            // from there. The settings asset is also not reliably loadable this
-            // early, so the actual work waits for the first editor update.
             if (Application.isBatchMode) return;
-            EditorApplication.update += RunAutomaticCheckOnce;
+            _nextTick = EditorApplication.timeSinceStartup + 10;
+            EditorApplication.update -= Tick;
+            EditorApplication.update += Tick;
         }
 
-        static void RunAutomaticCheckOnce()
+        static void Tick()
         {
-            EditorApplication.update -= RunAutomaticCheckOnce;
-
+            double now = EditorApplication.timeSinceStartup;
+            if (now < _nextTick) return;
+            _nextTick = now + 1;
+            QamelPackageUpdater.ObserveCompletedUpdate();
             var settings = QamelSettings.LoadFromResources();
-            if (settings == null || !settings.checkForUpdates) return;
-            if (!IntervalElapsed()) return;
-
-            CheckNow(settings, userInitiated: false);
-        }
-
-        static bool IntervalElapsed()
-        {
-            string stored = EditorPrefs.GetString(LastCheckedKey, "");
-            if (stored.Length == 0) return true;
-            if (!long.TryParse(stored, NumberStyles.Integer, CultureInfo.InvariantCulture,
-                    out long ticks))
+            if (!QamelPackageUpdater.EditorIsIdle || (settings != null && !settings.checkForUpdates))
             {
-                return true;
+                _idleSince = -1;
+                return;
             }
-            var last = new DateTime(ticks, DateTimeKind.Utc);
-            return (DateTime.UtcNow - last).TotalHours >= CheckIntervalHours;
+            if (!IsChecking && CheckIsDue(ReleaseVerified,
+                    EditorPrefs.GetString(ProjectKey("LastSuccess"), ""), DateTime.UtcNow, now, _retryAt))
+            {
+                CheckNow(settings, userInitiated: false);
+            }
+            if (IsChecking || !ReleaseVerified || !UpdateAvailable || IsSkipped ||
+                !QamelPackageUpdater.AutomaticUpdatesEnabled ||
+                QamelPackageUpdater.AutomaticUpdateReason(QamelPackageUpdater.Installed) != null)
+            {
+                _idleSince = -1;
+                return;
+            }
+            if (_idleSince < 0) _idleSince = now;
+            if (now - _idleSince < 10) return;
+            QamelPackageUpdater.TryAutomaticUpdate(LatestVersion);
         }
 
-        /// <summary>
-        /// Starts a check. <paramref name="userInitiated"/> checks bypass the daily
-        /// throttle and surface their errors, because someone is watching.
-        /// </summary>
+        internal static bool IntervalElapsed(string stored, DateTime now)
+        {
+            if (!long.TryParse(stored, NumberStyles.Integer, CultureInfo.InvariantCulture, out long ticks) ||
+                ticks < DateTime.MinValue.Ticks || ticks > DateTime.MaxValue.Ticks) return true;
+            var last = new DateTime(ticks, DateTimeKind.Utc);
+            return last > now || (now - last).TotalHours >= 24;
+        }
+
+        internal static bool CheckIsDue(bool verified, string lastSuccess, DateTime now,
+            double editorTime, double retryAt) =>
+            editorTime >= retryAt && (!verified || IntervalElapsed(lastSuccess, now));
+
+        internal static void CheckWhenDue(QamelSettings settings)
+        {
+            if (Application.isBatchMode || IsChecking || (settings != null && !settings.checkForUpdates)) return;
+            if (CheckIsDue(ReleaseVerified, EditorPrefs.GetString(ProjectKey("LastSuccess"), ""),
+                    DateTime.UtcNow, EditorApplication.timeSinceStartup, _retryAt))
+                CheckNow(settings, userInitiated: false);
+        }
+
+        internal static string DescribeStatus(bool checking, bool updating, bool verified,
+            string error, string installed, string latest)
+        {
+            if (updating) return "Updating...";
+            if (checking) return "Checking...";
+            if (!string.IsNullOrEmpty(error)) return "Check failed";
+            if (!verified || !QamelVersion.TryParse(installed, out _) ||
+                !QamelVersion.TryParse(latest, out _)) return "Not checked";
+            if (QamelVersion.IsNewer(latest, installed)) return "Update available";
+            if (QamelVersion.IsNewer(installed, latest)) return "Development version";
+            return "Up to date";
+        }
+
         public static void CheckNow(QamelSettings settings, bool userInitiated)
+        {
+            string endpoint = settings != null ? IngestRoutes.Normalize(settings.endpoint) : "https://ingest.qamel.ai";
+            CheckSources(endpoint.Length > 0
+                ? endpoint + IngestRoutes.LatestVersionPath + "?package=com.qamel.unity"
+                : null, PublishedManifestUrl, userInitiated);
+        }
+
+        // Explicit sources let the editor tests exercise real requests against
+        // a loopback server without contacting a user's project or public host.
+        internal static void CheckSources(string endpointUrl, string manifestUrl, bool userInitiated)
         {
             if (IsChecking) return;
             IsChecking = true;
+            _manualResult = userInitiated;
             LastError = null;
-            EditorPrefs.SetString(LastCheckedKey,
-                DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture));
+            LastResult = null;
+            _idleSince = -1;
+            EditorPrefs.SetBool(ProjectKey("Verified"), false);
+            _retryAt = EditorApplication.timeSinceStartup + RetrySeconds;
 
-            string endpoint = settings != null ? IngestRoutes.Normalize(settings.endpoint) : "";
-            string url = endpoint.Length > 0
-                ? endpoint + IngestRoutes.LatestVersionPath + "?package=" + PackageName
-                : ManifestFallbackUrl;
-
-            Send(url, userInitiated, endpoint.Length > 0);
+            string endpointBody = null;
+            string manifestBody = null;
+            string manifestError = null;
+            int remaining = string.IsNullOrEmpty(endpointUrl) ? 1 : 2;
+            void Complete()
+            {
+                if (--remaining > 0) return;
+                IsChecking = false;
+                EditorWindow.focusedWindow?.Repaint();
+                if (!ChooseRelease(endpointBody, manifestBody, out string latest,
+                        out string minSupported, out string notesUrl, out bool verified))
+                {
+                    LastError = "Could not check for updates. " + (manifestError ?? "The version response was invalid.");
+                    if (userInitiated || QLog.Verbose) QLog.Warn(LastError);
+                    return;
+                }
+                EditorPrefs.SetString(ProjectKey("Latest"), latest);
+                EditorPrefs.SetString(ProjectKey("MinSupported"), minSupported);
+                EditorPrefs.SetString(ProjectKey("NotesUrl"), notesUrl.Length > 0 ? notesUrl : ChangeHistoryUrl(latest));
+                EditorPrefs.SetBool(ProjectKey("Verified"), verified);
+                if (verified)
+                {
+                    EditorPrefs.SetString(ProjectKey("LastSuccess"), DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture));
+                    LastResult = UpdateAvailable
+                        ? "Qamel " + latest + " is available. You have " + InstalledVersion + "."
+                        : "Checked the published package. Qamel " + InstalledVersion + " is up to date.";
+                }
+                else
+                {
+                    LastError = "Could not verify the published package. Automatic updates will retry later.";
+                }
+                if (userInitiated) QLog.Notice(LastError ?? LastResult);
+            }
+            if (!string.IsNullOrEmpty(endpointUrl))
+                Send(endpointUrl, (body, error) => { endpointBody = body; Complete(); });
+            Send(manifestUrl, (body, error) =>
+            {
+                manifestBody = body;
+                manifestError = error;
+                Complete();
+            });
         }
 
-        const string PackageName = "com.qamel.unity";
-
-        static void Send(string url, bool userInitiated, bool allowFallback)
+        static void Send(string url, Action<string, string> completed)
         {
             var request = UnityWebRequest.Get(url);
             request.timeout = TimeoutSeconds;
             var operation = request.SendWebRequest();
-
             void Poll()
             {
                 if (!operation.isDone) return;
                 EditorApplication.update -= Poll;
-
                 bool ok = request.result == UnityWebRequest.Result.Success;
                 string body = ok ? request.downloadHandler.text : null;
                 string error = ok ? null : request.error;
-                long status = request.responseCode;
                 request.Dispose();
-
-                if (ok && TryApply(body))
-                {
-                    IsChecking = false;
-                    Announce(userInitiated);
-                    return;
-                }
-
-                // The endpoint answered with something unusable (an old server
-                // without the route, a captive portal). The public manifest is a
-                // second opinion worth one request.
-                if (allowFallback)
-                {
-                    Send(ManifestFallbackUrl, userInitiated, allowFallback: false);
-                    return;
-                }
-
-                IsChecking = false;
-                LastError = error ?? ("unexpected response" + (status > 0 ? " (HTTP " + status + ")" : ""));
-                if (userInitiated || QLog.Verbose)
-                {
-                    QLog.Warn("Could not check for plugin updates: " + LastError);
-                }
+                completed(body, error);
             }
-
             EditorApplication.update += Poll;
         }
 
-        /// <summary>
-        /// Reads a response body. Accepts either the Qamel payload or the package
-        /// manifest used as a fallback, and refuses anything without a parseable
-        /// version, so a proxy's HTML error page cannot become "latest".
-        /// </summary>
+        internal static bool ChooseRelease(string endpointBody, string manifestBody, out string latest,
+            out string minSupported, out string notesUrl, out bool verified)
+        {
+            bool endpointOk = TryParsePayload(endpointBody, out string endpointLatest,
+                out minSupported, out notesUrl);
+            verified = TryParsePublishedManifest(manifestBody, out string publishedLatest);
+            latest = verified ? publishedLatest : endpointLatest;
+            if (verified) notesUrl = ChangeHistoryUrl(publishedLatest);
+            return verified || endpointOk;
+        }
+
+        internal static string ChangeHistoryUrl(string latest)
+        {
+            return System.Text.RegularExpressions.Regex.IsMatch(latest ?? "",
+                @"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+                ? "https://github.com/qamel-ai/qamel-unity/commits/v" + latest
+                : ChangesUrl;
+        }
+
+        internal static bool TryParsePublishedManifest(string body, out string latest)
+        {
+            latest = "";
+            if (!TryParsePayload(body, out _, out _, out _)) return false;
+            var payload = JsonUtility.FromJson<LatestPayload>(body);
+            if (payload.name != "com.qamel.unity" ||
+                !System.Text.RegularExpressions.Regex.IsMatch(payload.version ?? "",
+                    @"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")) return false;
+            latest = payload.version;
+            return true;
+        }
+
         internal static bool TryParsePayload(string body, out string latest,
             out string minSupported, out string notesUrl)
         {
@@ -188,96 +239,29 @@ namespace QamelCapture.Editor
             minSupported = "";
             notesUrl = "";
             if (string.IsNullOrWhiteSpace(body)) return false;
-
             LatestPayload payload;
-            try
-            {
-                payload = JsonUtility.FromJson<LatestPayload>(body);
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-            if (payload == null) return false;
-
-            // The manifest fallback names the field "version".
-            string version = !string.IsNullOrWhiteSpace(payload.latest)
-                ? payload.latest
-                : payload.version;
+            try { payload = JsonUtility.FromJson<LatestPayload>(body); }
+            catch (Exception) { return false; }
+            if (payload == null || (!string.IsNullOrEmpty(payload.name) && payload.name != "com.qamel.unity") ||
+                (!string.IsNullOrEmpty(payload.package) && payload.package != "com.qamel.unity")) return false;
+            string version = !string.IsNullOrWhiteSpace(payload.latest) ? payload.latest : payload.version;
             if (!QamelVersion.TryParse(version, out _)) return false;
-
             latest = version.Trim();
-            if (QamelVersion.TryParse(payload.minSupported, out _))
-            {
-                minSupported = payload.minSupported.Trim();
-            }
-            // Only an absolute HTTPS URL, since this ends up in Application.OpenURL.
-            if (!string.IsNullOrWhiteSpace(payload.notesUrl) &&
-                payload.notesUrl.Trim().StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            {
-                notesUrl = payload.notesUrl.Trim();
-            }
+            if (QamelVersion.TryParse(payload.minSupported, out _)) minSupported = payload.minSupported.Trim();
+            if (Uri.TryCreate(payload.notesUrl, UriKind.Absolute, out var notes) &&
+                notes.Scheme == Uri.UriSchemeHttps && string.IsNullOrEmpty(notes.UserInfo)) notesUrl = notes.AbsoluteUri;
             return true;
-        }
-
-        static bool TryApply(string body)
-        {
-            if (!TryParsePayload(body, out string latest, out string minSupported,
-                    out string notesUrl))
-            {
-                return false;
-            }
-
-            EditorPrefs.SetString(LatestKey, latest);
-            EditorPrefs.SetString(MinSupportedKey, minSupported);
-            EditorPrefs.SetString(NotesUrlKey, notesUrl);
-            return true;
-        }
-
-        /// <summary>
-        /// One console line per version, ever. A daily reminder about a version
-        /// someone has already decided not to install is just noise.
-        /// </summary>
-        static void Announce(bool userInitiated)
-        {
-            if (InstalledVersionUnsupported)
-            {
-                QLog.Warn("This Qamel plugin (" + InstalledVersion + ") is older than the oldest " +
-                          "supported version (" + MinSupportedVersion + "). Update it in " +
-                          "Project Settings > Qamel.");
-                return;
-            }
-
-            if (!UpdateAvailable)
-            {
-                if (userInitiated)
-                {
-                    QLog.Notice("Qamel plugin " + InstalledVersion + " is up to date.");
-                }
-                return;
-            }
-
-            if (!userInitiated &&
-                string.Equals(EditorPrefs.GetString(AnnouncedKey, ""), LatestVersion,
-                    StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            EditorPrefs.SetString(AnnouncedKey, LatestVersion);
-            QLog.Notice("Qamel plugin " + LatestVersion + " is available (you have " +
-                        InstalledVersion + "). Update it in Project Settings > Qamel.");
         }
 
         [Serializable]
         class LatestPayload
         {
+            public string package;
+            public string name;
             public string latest;
+            public string version;
             public string minSupported;
             public string notesUrl;
-
-            /// <summary>Only set by the package.json fallback.</summary>
-            public string version;
         }
     }
 }

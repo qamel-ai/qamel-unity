@@ -10,7 +10,7 @@ namespace QamelCapture
     {
         public const string ResourceName = "QamelSettings";
         /// <summary>Kept in sync with package.json by the release script.</summary>
-        public const string PluginVersion = "0.1.11";
+        public const string PluginVersion = "0.1.12";
 
         public enum FlipMode
         {
@@ -26,15 +26,13 @@ namespace QamelCapture
             Playtester = 2,
         }
 
-        [Header("General")]
         [Tooltip("Master switch. When off, Qamel does nothing at runtime.")]
         public bool captureEnabled = true;
 
         [Tooltip("Explicitly include capture and its play key in packaged player builds. Editor capture works independently.")]
         public bool includeInPlayerBuild = false;
 
-        [Header("Upload")]
-        [Tooltip("Play key for this project, included in player builds and checked before each build. Create one at qamel.ai (project > Play keys). Qamel keeps data only in memory and on the Qamel servers, never on the player's disk.")]
+        [Tooltip("Play key for this project. Copy it from Qamel and paste it here.")]
         public string apiKey = "";
 
         [Tooltip("Qamel ingest base URL. Leave as-is unless Qamel gave you a different ingest host; request paths are versioned below this base.")]
@@ -43,14 +41,12 @@ namespace QamelCapture
         [Tooltip("Master switch for uploads. When off, Qamel captures nothing useful (there is no local storage), so this is mainly for temporarily muting the plugin.")]
         public bool uploadReports = true;
 
-        [Header("Build context")]
         [Tooltip("Optional immutable build identifier from your CI or release pipeline. Prefer this over a distribution-channel name.")]
         public string buildId = "";
 
         [Tooltip("Who normally runs packaged builds made with these settings. Editor sessions are always marked as developer. Leave Unknown unless the build has a clear audience.")]
         public ParticipantKind defaultParticipantKind = ParticipantKind.Unknown;
 
-        [Header("Capture")]
         [Tooltip("How many seconds of gameplay are kept in the rolling buffer and attached to each report.")]
         [Range(15, 600)]
         public int bufferSeconds = 30;
@@ -69,7 +65,6 @@ namespace QamelCapture
         [Tooltip("Vertical flip of captured frames. Leave on Auto unless frames come out upside down.")]
         public FlipMode frameFlip = FlipMode.Auto;
 
-        [Header("Input capture")]
         [Tooltip("Record key and mouse button presses as events (raw keys only, never assembled text).")]
         public bool captureInput = true;
 
@@ -79,7 +74,6 @@ namespace QamelCapture
         [Tooltip("Include standard Unity mono/stereo game audio in recordings. Enabled by default. Uses a bounded in-memory buffer, not PC/system audio or direct microphone capture.")]
         public bool captureAudio = true;
 
-        [Header("Reporting")]
         [Tooltip("Hotkey that opens the in-game bug report overlay.")]
         public KeyCode reportHotkey = KeyCode.F8;
 
@@ -92,7 +86,6 @@ namespace QamelCapture
         [Tooltip("Automatically file a report when an unhandled exception is logged, so the session context is delivered before a potential crash can lose the in-memory buffer. Rate-limited to one auto-report per minute.")]
         public bool autoReportOnException = true;
 
-        [Header("Experimental: continuous streaming")]
         [Tooltip("Continuously upload capture chunks instead of keeping only a rolling buffer. Experimental; used to evaluate full-session capture.")]
         public bool continuousStreaming = false;
 
@@ -100,11 +93,9 @@ namespace QamelCapture
         [Range(2, 60)]
         public int streamChunkSeconds = 10;
 
-        [Header("Updates")]
-        [Tooltip("Ask Qamel once a day, in the editor only, whether a newer plugin version exists and show it in Project Settings > Qamel. A plain GET: no API key, no identifiers, no project data.")]
+        [Tooltip("Check the published plugin once a day in the editor. Disabling this also stops automatic updates. No API key, identifiers or project data are sent.")]
         public bool checkForUpdates = true;
 
-        [Header("Diagnostics")]
         [Tooltip("Log Qamel's own informational messages to the console.")]
         public bool verboseLogging = false;
 

@@ -15,24 +15,22 @@ namespace QamelCapture.Editor
         const string AssetPath = AssetDir + "/" + QamelSettings.ResourceName + ".asset";
 
         const string ShowOptionalKey = "Qamel.Settings.ShowOptional";
-        const string FoldUploadKey = "Qamel.Settings.Fold.Upload";
-        const string FoldBuildKey = "Qamel.Settings.Fold.Build";
-        const string FoldCaptureKey = "Qamel.Settings.Fold.Capture";
-        const string FoldReportingKey = "Qamel.Settings.Fold.Reporting";
-        const string FoldExperimentalKey = "Qamel.Settings.Fold.Experimental";
         const string FoldExperimentalTestingKey = "Qamel.Settings.Fold.ExperimentalTesting";
-        const string FoldDiagnosticsKey = "Qamel.Settings.Fold.Diagnostics";
-        const string DashboardUrl = "https://qamel.ai";
 
         [SettingsProvider]
         public static SettingsProvider Create()
         {
-            return new SettingsProvider("Project/Qamel", SettingsScope.Project)
+            var provider = new SettingsProvider("Project/Qamel", SettingsScope.Project)
             {
                 label = "Qamel",
                 keywords = new[] { "qamel", "capture", "bug", "report", "playtest", "qa", "api key" },
                 guiHandler = _ => Draw(),
+                activateHandler = (_, __) => QamelUpdateCheck.CheckWhenDue(QamelSettings.LoadFromResources()),
             };
+            // Repaint the settings window itself, including after a request finishes
+            // while another editor window has focus.
+            provider.inspectorUpdateHandler = provider.Repaint;
+            return provider;
         }
 
         /// <summary>Fresh instance; its fields carry the declared defaults.</summary>
@@ -107,73 +105,52 @@ namespace QamelCapture.Editor
         {
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField(
-                    "Qamel for Unity " + QamelUpdateCheck.InstalledVersion,
+                EditorGUILayout.LabelField("Qamel for Unity " + QamelUpdateCheck.InstalledVersion,
                     EditorStyles.miniBoldLabel);
                 GUILayout.FlexibleSpace();
-                using (new EditorGUI.DisabledScope(QamelUpdateCheck.IsChecking))
+                string status = QamelUpdateCheck.DescribeStatus(QamelUpdateCheck.IsChecking,
+                    QamelPackageUpdater.IsUpdating, QamelUpdateCheck.ReleaseVerified,
+                    QamelUpdateCheck.LastError, QamelUpdateCheck.InstalledVersion, QamelUpdateCheck.LatestVersion);
+                GUILayout.Label(new GUIContent(status, QamelUpdateCheck.LastError ?? QamelUpdateCheck.LastResult),
+                    EditorStyles.miniBoldLabel, GUILayout.Width(115));
+                using (new EditorGUI.DisabledScope(QamelUpdateCheck.IsChecking || QamelPackageUpdater.IsUpdating))
                 {
-                    if (GUILayout.Button(
-                            QamelUpdateCheck.IsChecking ? "Checking…" : "Check for updates",
+                    if (GUILayout.Button("Check for updates",
                             EditorStyles.miniButton, GUILayout.Width(140)))
-                    {
                         QamelUpdateCheck.CheckNow(settings, userInitiated: true);
-                    }
                 }
             }
 
-            // Settings GUI only repaints on interaction, which would leave
-            // "Checking…" frozen on screen after the request finished.
-            if (QamelUpdateCheck.IsChecking || QamelPackageUpdater.IsUpdating)
-            {
-                if (EditorWindow.focusedWindow != null) EditorWindow.focusedWindow.Repaint();
-            }
+            if (!string.IsNullOrEmpty(QamelUpdateCheck.LastError))
+                EditorGUILayout.HelpBox(QamelUpdateCheck.LastError, MessageType.Warning);
+            if (!string.IsNullOrEmpty(QamelPackageUpdater.LastError))
+                EditorGUILayout.HelpBox(QamelPackageUpdater.LastError, MessageType.Warning);
 
             if (QamelUpdateCheck.InstalledVersionUnsupported)
-            {
-                EditorGUILayout.HelpBox(
-                    "This version is older than the oldest supported release (" +
-                    QamelUpdateCheck.MinSupportedVersion + "). Reports still upload, but " +
-                    "update as soon as you can.",
-                    MessageType.Warning);
-            }
-
-            if (!QamelUpdateCheck.UpdateAvailable) return;
+                EditorGUILayout.HelpBox("This version is older than the oldest supported release (" +
+                    QamelUpdateCheck.MinSupportedVersion + "). Update as soon as you can.", MessageType.Warning);
+            if (!QamelUpdateCheck.ShowUpdate) return;
 
             string latest = QamelUpdateCheck.LatestVersion;
-            EditorGUILayout.Space(4);
-            EditorGUILayout.HelpBox(
-                "Qamel " + latest + " is available. You have " +
-                QamelUpdateCheck.InstalledVersion + ".",
-                MessageType.Info);
+            string message = "Qamel " + latest + " is available. You have " + QamelUpdateCheck.InstalledVersion + ".";
+            if (QamelPackageUpdater.IsUpdating) message = "Updating Qamel to " + latest + "...";
+            EditorGUILayout.HelpBox(message, MessageType.Info);
 
-            string unsupportedReason =
-                QamelPackageUpdater.UnsupportedReason(QamelPackageUpdater.Installed);
+            string unsupportedReason = QamelPackageUpdater.UnsupportedReason(QamelPackageUpdater.Installed);
             using (new EditorGUILayout.HorizontalScope())
             {
-                using (new EditorGUI.DisabledScope(
-                    unsupportedReason != null || QamelPackageUpdater.IsUpdating))
+                using (new EditorGUI.DisabledScope(unsupportedReason != null || QamelPackageUpdater.IsUpdating))
                 {
-                    if (GUILayout.Button(
-                            QamelPackageUpdater.IsUpdating ? "Updating…" : "Update to " + latest,
-                            GUILayout.Width(180)))
-                    {
-                        QamelPackageUpdater.UpdateToLatest(latest);
-                    }
+                    if (GUILayout.Button(QamelPackageUpdater.IsUpdating ? "Updating..." : "Update to " + latest,
+                            GUILayout.Width(180))) QamelPackageUpdater.UpdateToLatest(latest);
                 }
-                if (GUILayout.Button("Release notes", GUILayout.Width(120)))
+                if (GUILayout.Button("View changes", GUILayout.Width(120))) Application.OpenURL(QamelUpdateCheck.NotesUrl);
+                using (new EditorGUI.DisabledScope(QamelPackageUpdater.IsUpdating))
                 {
-                    Application.OpenURL(QamelUpdateCheck.NotesUrl);
-                }
-                if (GUILayout.Button("Skip this version", GUILayout.Width(140)))
-                {
-                    QamelUpdateCheck.SkipCurrentLatest();
+                    if (GUILayout.Button("Skip this version", GUILayout.Width(140))) QamelUpdateCheck.SkipCurrentLatest();
                 }
             }
-            if (unsupportedReason != null)
-            {
-                EditorGUILayout.LabelField(unsupportedReason, WrappedMiniLabel);
-            }
+            if (unsupportedReason != null) EditorGUILayout.LabelField(unsupportedReason, WrappedMiniLabel);
         }
 
         static GUIStyle _wrappedMiniLabel;
@@ -181,11 +158,11 @@ namespace QamelCapture.Editor
         static GUIStyle WrappedMiniLabel =>
             _wrappedMiniLabel ??= new GUIStyle(EditorStyles.miniLabel) { wordWrap = true };
 
-        static void DrawProperty(SerializedObject serialized, string name)
+        static void DrawProperty(SerializedObject serialized, string name, string label = null)
         {
             SerializedProperty property = serialized.FindProperty(name);
             if (property != null)
-                EditorGUILayout.PropertyField(property, true);
+                EditorGUILayout.PropertyField(property, new GUIContent(label ?? property.displayName, property.tooltip), true);
         }
 
         static bool Foldout(string sessionKey, string label, bool defaultOpen = false)
@@ -218,8 +195,7 @@ namespace QamelCapture.Editor
                     break;
                 case QamelHealthCheck.Result.InvalidKey:
                     EditorGUILayout.HelpBox(
-                        "This play key was rejected. Create a new one at qamel.ai " +
-                        "(project > Play keys) and paste it here.",
+                        "This play key was rejected. Create a new key and paste it here.",
                         MessageType.Error);
                     DrawRetryHealth(settings);
                     break;
@@ -246,15 +222,9 @@ namespace QamelCapture.Editor
                 QamelHealthCheck.CheckNow(settings);
         }
 
-        static void DrawEssential(SerializedObject serialized, QamelSettings settings)
+        static void DrawCapture(SerializedObject serialized, QamelSettings settings)
         {
-            EditorGUILayout.LabelField("Essential", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox(
-                "Create a play key for your project at qamel.ai, then paste it here. " +
-                "Defaults work for most projects; open Optional settings below only if you need to change them.",
-                MessageType.None);
-            EditorGUILayout.Space(2);
-            DrawProperty(serialized, nameof(QamelSettings.captureEnabled));
+            DrawProperty(serialized, nameof(QamelSettings.captureEnabled), "Playtest capture enabled");
             DrawProperty(serialized, nameof(QamelSettings.includeInPlayerBuild));
             SerializedProperty apiKey = serialized.FindProperty(nameof(QamelSettings.apiKey));
             if (apiKey != null)
@@ -264,90 +234,58 @@ namespace QamelCapture.Editor
                     new GUIContent("Play key", apiKey.tooltip),
                     true);
             }
-            if (string.IsNullOrWhiteSpace(settings.apiKey))
-            {
-                EditorGUILayout.HelpBox(
-                    "A play key is required. Create one at qamel.ai (project > Play keys). " +
-                    "Reports stay in memory until one is set.",
-                    MessageType.Warning);
-                if (GUILayout.Button("Create play key", GUILayout.Width(220)))
-                    Application.OpenURL(DashboardUrl);
-            }
+            if (GUILayout.Button(string.IsNullOrWhiteSpace(settings.apiKey) ? "Create play key" : "Manage play keys",
+                    GUILayout.Width(180)))
+                Application.OpenURL(QamelSettingsLink.PlayKeysUrl(settings.endpoint));
             DrawProperty(serialized, nameof(QamelSettings.reportHotkey));
         }
 
         static void DrawOptional(SerializedObject serialized, QamelSettings settings)
         {
-            bool showOptional = SessionState.GetBool(ShowOptionalKey, false);
-            bool next = EditorGUILayout.Foldout(showOptional, "Optional settings", true);
-            if (next != showOptional) SessionState.SetBool(ShowOptionalKey, next);
-            if (!next) return;
-
+            if (!Foldout(ShowOptionalKey, "Optional settings")) return;
             EditorGUI.indentLevel++;
-
-            // Groups default open so expanding Optional is one click to a full layout;
-            // SessionState still remembers if the user collapses a section.
-            if (Foldout(FoldUploadKey, "Upload", defaultOpen: true))
-            {
-                EditorGUI.indentLevel++;
-                DrawProperty(serialized, nameof(QamelSettings.endpoint));
-                DrawEndpointWarning(settings);
-                DrawProperty(serialized, nameof(QamelSettings.uploadReports));
-                EditorGUI.indentLevel--;
-            }
-
-            if (Foldout(FoldBuildKey, "Build context", defaultOpen: true))
-            {
-                EditorGUI.indentLevel++;
-                DrawProperty(serialized, nameof(QamelSettings.buildId));
-                DrawProperty(serialized, nameof(QamelSettings.defaultParticipantKind));
-                EditorGUI.indentLevel--;
-            }
-
-            if (Foldout(FoldCaptureKey, "Capture", defaultOpen: true))
-            {
-                EditorGUI.indentLevel++;
-                EditorGUILayout.HelpBox(
-                    "If capture cannot keep up, Qamel skips frames instead of slowing the game. " +
-                    "Drops are counted on each report. Lower Capture Fps if footage looks choppy.",
-                    MessageType.None);
-                DrawProperty(serialized, nameof(QamelSettings.bufferSeconds));
-                DrawProperty(serialized, nameof(QamelSettings.captureFps));
-                DrawProperty(serialized, nameof(QamelSettings.frameWidth));
-                DrawProperty(serialized, nameof(QamelSettings.jpegQuality));
-                DrawProperty(serialized, nameof(QamelSettings.frameFlip));
-                DrawProperty(serialized, nameof(QamelSettings.captureInput));
-                DrawProperty(serialized, nameof(QamelSettings.captureMousePosition));
-                DrawProperty(serialized, nameof(QamelSettings.captureAudio));
-                EditorGUI.indentLevel--;
-            }
-
-            if (Foldout(FoldReportingKey, "Reporting", defaultOpen: true))
-            {
-                EditorGUI.indentLevel++;
-                DrawProperty(serialized, nameof(QamelSettings.useBuiltInOverlay));
-                DrawProperty(serialized, nameof(QamelSettings.pauseWhileReporting));
-                DrawProperty(serialized, nameof(QamelSettings.autoReportOnException));
-                EditorGUI.indentLevel--;
-            }
-
-            if (Foldout(FoldExperimentalKey, "Experimental", defaultOpen: true))
-            {
-                EditorGUI.indentLevel++;
-                DrawProperty(serialized, nameof(QamelSettings.continuousStreaming));
+            DrawProperty(serialized, nameof(QamelSettings.endpoint));
+            DrawEndpointWarning(settings);
+            DrawProperty(serialized, nameof(QamelSettings.uploadReports));
+            DrawProperty(serialized, nameof(QamelSettings.buildId));
+            DrawProperty(serialized, nameof(QamelSettings.defaultParticipantKind));
+            EditorGUILayout.Space(8);
+            DrawProperty(serialized, nameof(QamelSettings.bufferSeconds));
+            DrawProperty(serialized, nameof(QamelSettings.captureFps));
+            DrawProperty(serialized, nameof(QamelSettings.frameWidth));
+            DrawProperty(serialized, nameof(QamelSettings.jpegQuality));
+            DrawProperty(serialized, nameof(QamelSettings.frameFlip));
+            DrawProperty(serialized, nameof(QamelSettings.captureInput));
+            DrawProperty(serialized, nameof(QamelSettings.captureMousePosition));
+            DrawProperty(serialized, nameof(QamelSettings.captureAudio));
+            EditorGUILayout.Space(8);
+            DrawProperty(serialized, nameof(QamelSettings.useBuiltInOverlay));
+            DrawProperty(serialized, nameof(QamelSettings.pauseWhileReporting));
+            DrawProperty(serialized, nameof(QamelSettings.autoReportOnException));
+            DrawProperty(serialized, nameof(QamelSettings.continuousStreaming));
+            if (settings.continuousStreaming)
                 DrawProperty(serialized, nameof(QamelSettings.streamChunkSeconds));
-                EditorGUI.indentLevel--;
-            }
-
-            if (Foldout(FoldDiagnosticsKey, "Diagnostics", defaultOpen: true))
+            EditorGUILayout.Space(8);
+            DrawProperty(serialized, nameof(QamelSettings.checkForUpdates));
+            using (new EditorGUI.DisabledScope(!settings.checkForUpdates || QamelPackageUpdater.IsUpdating))
             {
-                EditorGUI.indentLevel++;
-                DrawProperty(serialized, nameof(QamelSettings.checkForUpdates));
-                DrawProperty(serialized, nameof(QamelSettings.verboseLogging));
-                DrawProperty(serialized, nameof(QamelSettings.sendPluginDiagnostics));
-                EditorGUI.indentLevel--;
+                bool automatic = EditorGUILayout.Toggle(new GUIContent("Update automatically",
+                    "Install stable releases when Unity is idle and scenes are saved. Applies to this project on this machine."),
+                    QamelPackageUpdater.AutomaticUpdatesEnabled);
+                if (automatic != QamelPackageUpdater.AutomaticUpdatesEnabled)
+                    QamelPackageUpdater.AutomaticUpdatesEnabled = automatic;
             }
-
+            DrawProperty(serialized, nameof(QamelSettings.verboseLogging));
+            DrawProperty(serialized, nameof(QamelSettings.sendPluginDiagnostics));
+            EditorGUILayout.Space(8);
+            using (new EditorGUI.DisabledScope(!HasNonDefaultValues(settings)))
+            {
+                if (GUILayout.Button("Reset to defaults", GUILayout.Width(180)) &&
+                    EditorUtility.DisplayDialog("Reset Qamel settings?",
+                        "Every setting goes back to its default. Your play key is kept.", "Reset", "Cancel"))
+                    ResetToDefaults(settings);
+            }
+            DrawExperimentalTesting();
             EditorGUI.indentLevel--;
         }
 
@@ -356,37 +294,25 @@ namespace QamelCapture.Editor
             EditorGUILayout.Space(8);
 
             var settings = QamelSettings.LoadFromResources();
-            if (settings == null)
-            {
-                EditorGUILayout.HelpBox(
-                    "Qamel Capture is installed but not configured yet.\n" +
-                    "Create the settings asset, then paste a play key from qamel.ai.",
-                    MessageType.Info);
-                EditorGUILayout.Space(4);
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    if (GUILayout.Button("Create Qamel settings", GUILayout.Width(220)))
-                    {
-                        Directory.CreateDirectory(AssetDir);
-                        var asset = ScriptableObject.CreateInstance<QamelSettings>();
-                        AssetDatabase.CreateAsset(asset, AssetPath);
-                        AssetDatabase.SaveAssets();
-                        Selection.activeObject = asset;
-                    }
-                    if (GUILayout.Button("Create play key", GUILayout.Width(220)))
-                        Application.OpenURL(DashboardUrl);
-                }
-                DrawExperimentalTesting();
-                return;
-            }
-
             DrawVersionAndUpdates(settings);
             EditorGUILayout.Space(8);
+            if (settings == null)
+            {
+                if (GUILayout.Button("Create Qamel settings", GUILayout.Width(180)))
+                {
+                    Directory.CreateDirectory(AssetDir);
+                    var asset = ScriptableObject.CreateInstance<QamelSettings>();
+                    AssetDatabase.CreateAsset(asset, AssetPath);
+                    AssetDatabase.SaveAssets();
+                    Selection.activeObject = asset;
+                }
+                return;
+            }
 
             var serialized = new SerializedObject(settings);
             serialized.Update();
 
-            DrawEssential(serialized, settings);
+            DrawCapture(serialized, settings);
             EditorGUILayout.Space(8);
             DrawOptional(serialized, settings);
 
@@ -403,27 +329,6 @@ namespace QamelCapture.Editor
             QamelHealthCheck.ObserveSettings(settings);
             DrawHealthStatus(settings);
 
-            EditorGUILayout.Space(8);
-            EditorGUILayout.HelpBox(
-                "Qamel keeps captured data only in memory on the device and delivers it to the " +
-                "Qamel servers. Nothing is written to the player's disk, so a play key and " +
-                "endpoint are required for reports to go anywhere.",
-                MessageType.None);
-
-            EditorGUILayout.Space(8);
-            using (new EditorGUI.DisabledScope(!HasNonDefaultValues(settings)))
-            {
-                if (GUILayout.Button("Reset to defaults", GUILayout.Width(220)) &&
-                    EditorUtility.DisplayDialog(
-                        "Reset Qamel settings?",
-                        "Every setting goes back to its default. Your play key is kept.",
-                        "Reset",
-                        "Cancel"))
-                {
-                    ResetToDefaults(settings);
-                }
-            }
-            DrawExperimentalTesting();
         }
 
         static void DrawExperimentalTesting()
@@ -432,11 +337,6 @@ namespace QamelCapture.Editor
             if (!Foldout(FoldExperimentalTestingKey, "Experimental testing", defaultOpen: false))
                 return;
 
-            EditorGUILayout.HelpBox(
-                "Optional recording and replay tools for internal testing. " +
-                "Human playtest capture does not need these tools. " +
-                "This choice applies only to this project on this machine.",
-                MessageType.Info);
             bool enabled = TestLabPreferences.IsEnabled;
             using (new EditorGUI.DisabledScope(enabled && !TestLabSession.CanDisableExperimentalFeature))
             {

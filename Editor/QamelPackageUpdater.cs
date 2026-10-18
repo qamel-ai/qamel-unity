@@ -3,16 +3,17 @@ using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace QamelCapture.Editor
 {
     /// <summary>
-    /// Moves the installed package to a newer version in one click.
+    /// Installs newer releases automatically while idle, or on explicit request.
     ///
     /// How it does that depends on how the package was installed: a git install is
     /// asked for the release tag, a branch install for the same branch again, and a
     /// registry install (OpenUPM) for the exact version. Local and embedded installs
-    /// are left alone entirely -- those are checkouts someone is working in,
+    /// are left alone entirely. Those are checkouts someone is working in,
     /// including this monorepo's own test project.
     /// </summary>
     internal static class QamelPackageUpdater
@@ -21,6 +22,75 @@ namespace QamelCapture.Editor
 
         static AddRequest _request;
         static string _requestedTarget;
+
+        public static bool AutomaticUpdatesEnabled
+        {
+            get => EditorPrefs.GetBool(QamelUpdateCheck.ProjectKey("AutomaticUpdates"), true);
+            set => EditorPrefs.SetBool(QamelUpdateCheck.ProjectKey("AutomaticUpdates"), value);
+        }
+
+        public static string LastError => SessionState.GetString(QamelUpdateCheck.ProjectKey("UpdateError"), "");
+        public static string LastResult => SessionState.GetString(QamelUpdateCheck.ProjectKey("UpdateResult"), "");
+
+        public static bool EditorIsIdle
+        {
+            get
+            {
+                if (Application.isBatchMode || EditorApplication.isPlayingOrWillChangePlaymode ||
+                    EditorApplication.isCompiling || EditorApplication.isUpdating ||
+                    BuildPipeline.isBuildingPlayer || IsUpdating) return false;
+                for (int i = 0; i < SceneManager.sceneCount; i++)
+                    if (SceneManager.GetSceneAt(i).isDirty) return false;
+                return true;
+            }
+        }
+
+        public static string AutomaticUpdateReason(UnityEditor.PackageManager.PackageInfo info)
+        {
+            string reason = UnsupportedReason(info);
+            if (reason != null) return reason;
+            if (info.source != PackageSource.Git)
+                return "Use Update to latest for this registry install.";
+            return QamelUpdateTargets.SupportsAutomaticGitUpdate(GitUrlOf(info), RequestedRevisionOf(info))
+                ? null
+                : "Automatic updates leave custom repositories, branches and commit pins unchanged. Use Update to latest.";
+        }
+
+        public static void TryAutomaticUpdate(string latestVersion)
+        {
+            if (!AutomaticUpdatesEnabled || !EditorIsIdle || !QamelUpdateCheck.ReleaseVerified ||
+                latestVersion != QamelUpdateCheck.LatestVersion || QamelUpdateCheck.IsSkipped ||
+                AutomaticUpdateReason(Installed) != null ||
+                !QamelVersion.TryParse(latestVersion, out var parsed) || parsed.PreRelease ||
+                !QamelVersion.IsNewer(latestVersion, QamelUpdateCheck.InstalledVersion)) return;
+            string attempt = EditorPrefs.GetString(QamelUpdateCheck.ProjectKey("AutoAttemptVersion"), "");
+            if (attempt == latestVersion && !QamelUpdateCheck.IntervalElapsed(
+                    EditorPrefs.GetString(QamelUpdateCheck.ProjectKey("AutoAttemptTime"), ""), System.DateTime.UtcNow)) return;
+            EditorPrefs.SetString(QamelUpdateCheck.ProjectKey("AutoAttemptVersion"), latestVersion);
+            EditorPrefs.SetString(QamelUpdateCheck.ProjectKey("AutoAttemptTime"),
+                System.DateTime.UtcNow.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            StartUpdate(TargetFor(Installed, latestVersion), latestVersion);
+        }
+
+        public static void ObserveCompletedUpdate()
+        {
+            string pending = SessionState.GetString(QamelUpdateCheck.ProjectKey("PendingVersion"), "");
+            if (pending.Length == 0 || IsUpdating) return;
+            if (QamelVersion.TryCompare(QamelUpdateCheck.InstalledVersion, pending, out int comparison) && comparison >= 0)
+            {
+                SessionState.EraseString(QamelUpdateCheck.ProjectKey("PendingVersion"));
+                SessionState.SetString(QamelUpdateCheck.ProjectKey("UpdateResult"),
+                    "Qamel updated to " + QamelUpdateCheck.InstalledVersion + ".");
+            }
+            else if (EditorApplication.timeSinceStartup >
+                     SessionState.GetFloat(QamelUpdateCheck.ProjectKey("UpdateStarted"), 0) + 60 &&
+                     !EditorApplication.isCompiling && !EditorApplication.isUpdating)
+            {
+                SessionState.EraseString(QamelUpdateCheck.ProjectKey("PendingVersion"));
+                SessionState.SetString(QamelUpdateCheck.ProjectKey("UpdateError"),
+                    "The update did not complete. Try Update to latest or use Package Manager.");
+            }
+        }
 
         public static bool IsUpdating => _request != null;
 
@@ -103,13 +173,18 @@ namespace QamelCapture.Editor
         }
 
         /// <summary>
-        /// Asks for confirmation, then starts the update. Package Manager will
-        /// reimport and reload the domain when it finishes, so this is not
-        /// something to trigger without asking.
+        /// Manual updates retain the confirmation. The automatic path uses the
+        /// project's update preference and waits for an idle editor.
         /// </summary>
         public static void UpdateToLatest(string latestVersion)
         {
             if (IsUpdating) return;
+            if (!EditorIsIdle)
+            {
+                SessionState.SetString(QamelUpdateCheck.ProjectKey("UpdateError"),
+                    "Save scene changes and leave Play Mode before updating. Unity must finish importing or building first.");
+                return;
+            }
 
             var info = Installed;
             string reason = UnsupportedReason(info);
@@ -142,9 +217,30 @@ namespace QamelCapture.Editor
                 "Update", "Cancel");
             if (!confirmed) return;
 
-            _requestedTarget = target;
-            _request = Client.Add(target);
-            EditorApplication.update += Poll;
+            StartUpdate(target, latestVersion);
+        }
+
+        static void StartUpdate(string target, string latestVersion)
+        {
+            if (string.IsNullOrEmpty(target)) return;
+            SessionState.EraseString(QamelUpdateCheck.ProjectKey("UpdateError"));
+            SessionState.EraseString(QamelUpdateCheck.ProjectKey("UpdateResult"));
+            SessionState.SetString(QamelUpdateCheck.ProjectKey("PendingVersion"), latestVersion);
+            SessionState.SetFloat(QamelUpdateCheck.ProjectKey("UpdateStarted"), (float)EditorApplication.timeSinceStartup);
+            try
+            {
+                _requestedTarget = target;
+                _request = Client.Add(target);
+                EditorApplication.update += Poll;
+                QLog.Notice("Updating Qamel to " + latestVersion + ".");
+                EditorWindow.focusedWindow?.Repaint();
+            }
+            catch (Exception error)
+            {
+                _request = null;
+                SessionState.EraseString(QamelUpdateCheck.ProjectKey("PendingVersion"));
+                SessionState.SetString(QamelUpdateCheck.ProjectKey("UpdateError"), "Updating Qamel failed: " + error.Message);
+            }
         }
 
         static void Poll()
@@ -161,15 +257,22 @@ namespace QamelCapture.Editor
             string target = _requestedTarget;
             _request = null;
             _requestedTarget = null;
+            EditorWindow.focusedWindow?.Repaint();
 
             if (request.Status == StatusCode.Success)
             {
                 var result = request.Result;
-                QLog.Notice("Qamel updated to " + (result != null ? result.version : "the requested version") + ".");
+                string successMessage = "Qamel updated to " + (result != null ? result.version : "the requested version") + ".";
+                SessionState.SetString(QamelUpdateCheck.ProjectKey("UpdateResult"), successMessage);
+                SessionState.EraseString(QamelUpdateCheck.ProjectKey("PendingVersion"));
+                QLog.Notice(successMessage);
                 return;
             }
 
             string message = request.Error != null ? request.Error.message : "unknown error";
+            SessionState.EraseString(QamelUpdateCheck.ProjectKey("PendingVersion"));
+            SessionState.SetString(QamelUpdateCheck.ProjectKey("UpdateError"),
+                "Updating Qamel failed: " + message + ". Try Update to latest or use Package Manager.");
             QLog.Warn("Updating Qamel failed (" + target + "): " + message +
                       "\nUpdate it through Package Manager instead.");
         }

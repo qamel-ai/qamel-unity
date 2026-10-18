@@ -6,6 +6,19 @@ namespace QamelCapture.Tests
 {
     public sealed class QamelSettingsLinkTests
     {
+        [TestCase("https://ingest.qamel.ai", "https://qamel.ai/play-keys")]
+        [TestCase("https://custom.example", "https://qamel.ai/play-keys")]
+        [TestCase(null, "https://qamel.ai/play-keys")]
+        [TestCase("http://localhost:3000", "http://localhost:3000/play-keys")]
+        [TestCase("http://127.0.0.1:3000/v1?key=discarded", "http://127.0.0.1:3000/play-keys")]
+        [TestCase("http://[::1]:3000", "http://[::1]:3000/play-keys")]
+        [TestCase("http://localhost.evil.example", "https://qamel.ai/play-keys")]
+        [TestCase("https://user:secret@localhost:3000", "https://qamel.ai/play-keys")]
+        public void PlayKeyLinksOpenTheAppWithoutSendingAKey(string endpoint, string expected)
+        {
+            Assert.AreEqual(expected, QamelSettingsLink.PlayKeysUrl(endpoint));
+        }
+
         const string Link = "com.unity.editor://editor/qamelcapture/settings";
 
         [TestCase("")]

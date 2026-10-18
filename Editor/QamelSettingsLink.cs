@@ -5,6 +5,16 @@ namespace QamelCapture.Editor
 {
     internal static class QamelSettingsLink
     {
+        internal static string PlayKeysUrl(string ingestEndpoint)
+        {
+            // Local development serves the app and ingest API on the same host.
+            if (Uri.TryCreate(ingestEndpoint, UriKind.Absolute, out var endpoint) &&
+                (endpoint.Scheme == "http" || endpoint.Scheme == "https") &&
+                endpoint.IsLoopback && string.IsNullOrEmpty(endpoint.UserInfo))
+                return endpoint.GetLeftPart(UriPartial.Authority) + "/play-keys";
+            return "https://qamel.ai/play-keys";
+        }
+
         internal static bool IsSettingsLink(Uri uri)
         {
             return uri != null && uri.IsAbsoluteUri &&

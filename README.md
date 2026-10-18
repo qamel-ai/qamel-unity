@@ -30,7 +30,7 @@ both the legacy Input Manager and the Input System package.
    version stays fixed until you update it.
 
 2. **Add your play key.** Create one for your project at
-   [qamel.ai](https://qamel.ai), then open `Edit > Project Settings > Qamel`,
+   [Qamel Play keys](https://qamel.ai/play-keys), then open `Edit > Project Settings > Qamel`,
    click *Create Qamel settings*, and paste the key.
 
 3. **Play.** Press **F8** whenever something looks wrong, optionally describe it,
@@ -107,8 +107,8 @@ void OnDisable()
 
 | Setting | Default | |
 | ------- | ------- | ----- |
-| Capture Enabled | on | Master switch |
-| Play key | empty | Required; create one for your project at [qamel.ai](https://qamel.ai) |
+| Playtest capture enabled | on | Master switch |
+| Play key | empty | Required; create one for your project at [Qamel Play keys](https://qamel.ai/play-keys) |
 | Endpoint | `https://ingest.qamel.ai` | Change only if Qamel gave you another host |
 | Upload Reports | on | Turn off to stop sending without disabling capture |
 | Build Id | empty | Optional CI/release build identifier used for filtering |
@@ -139,20 +139,27 @@ player's device.
 
 Unity resolves a git package once and records that commit in your
 `Packages/packages-lock.json`, so Package Manager never offers you an update.
-Qamel therefore checks for one itself: `Edit > Project Settings > Qamel` shows
-your installed version, and when a newer one exists you get a banner with
-*Update to X*, *Release notes* and *Skip this version*, plus one line in the
-console. *Update to X* asks Package Manager for that release's tag. Package
-Manager only re-resolves a git package when the requested revision changes, so
-naming the tag is what makes it an update. If you installed without a tag, the
-first update pins you to one and later releases update the same way. A branch
-install keeps tracking its branch. Unity reimports afterwards, so save your
-scene first.
+Qamel checks the published package once a day, independently of website
+releases. Failed checks retry after ten minutes. *Check for updates* in
+`Edit > Project Settings > Qamel` checks immediately and shows the result.
+The check runs only in the editor and sends no API key, identifiers or project
+data. Disable *Check For Updates* to stop background checks and automatic updates.
 
-The check runs in the editor only, at most once a day, and can be turned off
-with *Check For Updates*. It is a plain `GET` for a version number: no API key,
-no identifiers, no project data. Use *Check for updates* on that page to ask
-immediately.
+*Update automatically* is in Optional settings and is on by default, with a choice saved for this project
+on this machine. Official Git installs without a revision, or with a release
+tag, move to the newest stable release tag. Unity waits until it is out of Play
+Mode, finished importing or building, and all open scenes are saved. Updates
+reimport the package and may reload scripts. Local copies, custom repositories,
+branch installs, commit pins and registry installs require a manual update.
+Player builds never check for or install updates.
+
+The settings page shows available releases and installation errors, with
+*Update to X*, *View changes* and *Skip this version*. Skipping prevents that
+release from installing automatically. Explicit checks still show skipped
+releases. Failed automatic installations retry at most once per day; use
+*Update to X* or Package Manager to retry immediately. Manual updates ask for
+confirmation. An initially unpinned Git install becomes pinned to a release
+tag, and later automatic updates move it to newer release tags.
 
 To update by hand (which is what you need coming from a version that predates
 this banner), add the git URL with the tag you want in Package Manager
@@ -178,7 +185,7 @@ also works if you track a branch and just want the newest commit.
 
 **Nothing arrives.** Check the console for a `[Qamel]` warning. A missing
 play key disables capture at startup; a rejected key disables
-uploads for the session. Create or rotate keys at [qamel.ai](https://qamel.ai)
+uploads for the session. Create or rotate keys at [Qamel Play keys](https://qamel.ai/play-keys)
 under the project's Play keys page.
 
 **Footage is upside down.** Set *Frame Flip* to the opposite value.
@@ -191,12 +198,12 @@ report. Lower *Capture Fps* if this happens often.
 support async GPU readback, so Qamel skips frames rather than stalling your
 game.
 
-Keyboard and mouse are recorded; gamepad, touch and audio are not yet.
+Keyboard, mouse and standard Unity mono/stereo game audio can be recorded.
 
 ## License
 
 MIT, see [LICENSE.md](LICENSE.md). Using it needs a Qamel play key
-(create one at [qamel.ai](https://qamel.ai)), which is where reports are
+(create one at [Qamel Play keys](https://qamel.ai/play-keys)), which is where reports are
 analysed and grouped.
 
 ---
