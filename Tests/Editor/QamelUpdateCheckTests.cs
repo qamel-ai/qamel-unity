@@ -242,7 +242,7 @@ namespace QamelCapture.Tests
         }
 
         [UnityTest]
-        public IEnumerator RealRequestsFindAnUpdateDespiteAStaleEndpointAndASkippedVersion()
+        public IEnumerator AutomaticChecksIgnoreLegacySkippedVersionsDespiteAStaleEndpoint()
         {
             string[] fields = { "Latest", "MinSupported", "NotesUrl", "Skipped", "LastSuccess" };
             string[] previous = new string[fields.Length];
@@ -283,15 +283,14 @@ namespace QamelCapture.Tests
                 try
                 {
                     EditorPrefs.SetString(QamelUpdateCheck.ProjectKey("Skipped"), "9.0.1");
-                    QamelUpdateCheck.CheckSources(root + "endpoint", root + "manifest", userInitiated: true);
+                    QamelUpdateCheck.CheckSources(root + "endpoint", root + "manifest", userInitiated: false);
                     double deadline = EditorApplication.timeSinceStartup + 15;
                     while (QamelUpdateCheck.IsChecking && EditorApplication.timeSinceStartup < deadline) yield return null;
                     Assert.IsFalse(QamelUpdateCheck.IsChecking, "request timed out");
                     Assert.AreEqual("9.0.1", QamelUpdateCheck.LatestVersion);
                     Assert.IsTrue(QamelUpdateCheck.ReleaseVerified);
                     Assert.IsTrue(QamelUpdateCheck.UpdateAvailable);
-                    Assert.IsTrue(QamelUpdateCheck.IsSkipped, "manual checks must preserve the automatic-install dismissal");
-                    Assert.IsTrue(QamelUpdateCheck.ShowUpdate, "a manual check still reveals the skipped update");
+                    Assert.IsTrue(QamelUpdateCheck.ShowUpdate, "a legacy skip must not hide an automatically found update");
                     Assert.IsNull(QamelUpdateCheck.LastError);
                     StringAssert.Contains("is available", QamelUpdateCheck.LastResult);
                     Assert.IsTrue(server.IsCompleted);

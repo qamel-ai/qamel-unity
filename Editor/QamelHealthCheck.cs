@@ -128,7 +128,6 @@ namespace QamelCapture.Editor
             if (QamelUpdateCheck.IsChecking) return "checking";
             if (!string.IsNullOrEmpty(QamelPackageUpdater.LastError)) return "update_failed";
             if (!string.IsNullOrEmpty(QamelUpdateCheck.LastError)) return "check_failed";
-            if (QamelUpdateCheck.UpdateAvailable && QamelUpdateCheck.IsSkipped) return "skipped";
             string status = QamelUpdateCheck.DescribeStatus(false, false, QamelUpdateCheck.ReleaseVerified,
                 null, QamelUpdateCheck.InstalledVersion, QamelUpdateCheck.LatestVersion,
                 QamelUpdateCheck.LastSuccess, DateTime.UtcNow);

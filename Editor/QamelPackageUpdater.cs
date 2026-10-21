@@ -59,7 +59,7 @@ namespace QamelCapture.Editor
         public static void TryAutomaticUpdate(string latestVersion)
         {
             if (!AutomaticUpdatesEnabled || !EditorIsIdle || !QamelUpdateCheck.ReleaseVerified ||
-                latestVersion != QamelUpdateCheck.LatestVersion || QamelUpdateCheck.IsSkipped ||
+                latestVersion != QamelUpdateCheck.LatestVersion ||
                 AutomaticUpdateReason(Installed) != null ||
                 !QamelVersion.TryParse(latestVersion, out var parsed) || parsed.PreRelease ||
                 !QamelVersion.IsNewer(latestVersion, QamelUpdateCheck.InstalledVersion)) return;

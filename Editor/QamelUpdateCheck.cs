@@ -9,7 +9,7 @@ namespace QamelCapture.Editor
     /// <summary>
     /// Editor-only release checks. The published package is authoritative: a
     /// website deployment can lag behind a package release. No credentials or
-    /// project data are sent. Cache and dismissal state belong to this project.
+    /// project data are sent. Cache and update preferences belong to this project.
     /// </summary>
     internal static class QamelUpdateCheck
     {
@@ -22,7 +22,6 @@ namespace QamelCapture.Editor
         static double _nextTick;
         static double _retryAt;
         static double _idleSince = -1;
-        static bool _manualResult;
 
         internal static string ProjectKey(string field) =>
             "Qamel.UpdateCheck.V2." + Hash128.Compute(Application.dataPath) + "." + field;
@@ -31,7 +30,6 @@ namespace QamelCapture.Editor
             QamelPackageUpdater.Installed?.version ?? QamelSettings.PluginVersion;
         public static string LatestVersion => EditorPrefs.GetString(ProjectKey("Latest"), "");
         public static string MinSupportedVersion => EditorPrefs.GetString(ProjectKey("MinSupported"), "");
-        public static string SkippedVersion => EditorPrefs.GetString(ProjectKey("Skipped"), "");
         public static bool ReleaseVerified => EditorPrefs.GetBool(ProjectKey("Verified"), false);
         public static string NotesUrl => ChangeHistoryUrl(LatestVersion);
         public static bool IsChecking { get; private set; }
@@ -41,16 +39,9 @@ namespace QamelCapture.Editor
         public static DateTime? LastSuccessfulCheckUtc => ReadCheckTime(LastSuccess);
         static bool CheckedThisSession => SessionState.GetBool(ProjectKey("CheckedThisSession"), false);
         public static bool UpdateAvailable => QamelVersion.IsNewer(LatestVersion, InstalledVersion);
-        public static bool IsSkipped => string.Equals(SkippedVersion, LatestVersion, StringComparison.Ordinal);
-        public static bool ShowUpdate => UpdateAvailable && (!IsSkipped || _manualResult);
+        public static bool ShowUpdate => UpdateAvailable;
         public static bool InstalledVersionUnsupported =>
             QamelVersion.IsNewer(MinSupportedVersion, InstalledVersion);
-
-        public static void SkipCurrentLatest()
-        {
-            if (LatestVersion.Length > 0) EditorPrefs.SetString(ProjectKey("Skipped"), LatestVersion);
-            _manualResult = false;
-        }
 
         [InitializeOnLoadMethod]
         static void ScheduleAutomaticCheck()
@@ -81,7 +72,7 @@ namespace QamelCapture.Editor
             {
                 CheckNow(settings, userInitiated: false);
             }
-            if (!QamelPackageUpdater.EditorIsIdle || IsChecking || !ReleaseVerified || !UpdateAvailable || IsSkipped ||
+            if (!QamelPackageUpdater.EditorIsIdle || IsChecking || !ReleaseVerified || !UpdateAvailable ||
                 !QamelPackageUpdater.AutomaticUpdatesEnabled ||
                 QamelPackageUpdater.AutomaticUpdateReason(QamelPackageUpdater.Installed) != null)
             {
@@ -148,7 +139,6 @@ namespace QamelCapture.Editor
             if (IsChecking) return;
             IsChecking = true;
             SessionState.SetBool(ProjectKey("CheckedThisSession"), true);
-            _manualResult = userInitiated;
             LastError = null;
             LastResult = null;
             _idleSince = -1;

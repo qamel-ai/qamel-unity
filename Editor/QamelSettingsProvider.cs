@@ -160,10 +160,6 @@ namespace QamelCapture.Editor
                             GUILayout.Width(180))) QamelPackageUpdater.UpdateToLatest(latest);
                 }
                 if (GUILayout.Button("View changes", GUILayout.Width(120))) Application.OpenURL(QamelUpdateCheck.NotesUrl);
-                using (new EditorGUI.DisabledScope(QamelPackageUpdater.IsUpdating))
-                {
-                    if (GUILayout.Button("Skip this version", GUILayout.Width(140))) QamelUpdateCheck.SkipCurrentLatest();
-                }
             }
             if (unsupportedReason != null) EditorGUILayout.LabelField(unsupportedReason, WrappedMiniLabel);
         }
@@ -320,15 +316,6 @@ namespace QamelCapture.Editor
             if (settings.continuousStreaming)
                 DrawProperty(serialized, nameof(QamelSettings.streamChunkSeconds));
             EditorGUILayout.Space(8);
-            DrawProperty(serialized, nameof(QamelSettings.checkForUpdates));
-            using (new EditorGUI.DisabledScope(!settings.checkForUpdates || QamelPackageUpdater.IsUpdating))
-            {
-                bool automatic = EditorGUILayout.Toggle(new GUIContent("Update automatically",
-                    "Install stable releases when Unity is idle and scenes are saved. Applies to this project on this machine."),
-                    QamelPackageUpdater.AutomaticUpdatesEnabled);
-                if (automatic != QamelPackageUpdater.AutomaticUpdatesEnabled)
-                    QamelPackageUpdater.AutomaticUpdatesEnabled = automatic;
-            }
             DrawProperty(serialized, nameof(QamelSettings.verboseLogging));
             DrawProperty(serialized, nameof(QamelSettings.sendPluginDiagnostics));
             EditorGUILayout.Space(8);
@@ -348,7 +335,27 @@ namespace QamelCapture.Editor
             EditorGUILayout.Space(8);
 
             var settings = QamelSettings.LoadFromResources();
-            DrawVersionAndUpdates(settings);
+            var serialized = settings != null ? new SerializedObject(settings) : null;
+            serialized?.Update();
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.LabelField("Plugin updates", EditorStyles.boldLabel);
+                DrawVersionAndUpdates(settings);
+                if (serialized != null)
+                {
+                    EditorGUILayout.Space(4);
+                    DrawProperty(serialized, nameof(QamelSettings.checkForUpdates));
+                    using (new EditorGUI.DisabledScope(
+                        !serialized.FindProperty(nameof(QamelSettings.checkForUpdates)).boolValue || QamelPackageUpdater.IsUpdating))
+                    {
+                        bool automatic = EditorGUILayout.Toggle(new GUIContent("Update automatically",
+                            "Install stable releases when Unity is idle and scenes are saved. Applies to this project on this machine."),
+                            QamelPackageUpdater.AutomaticUpdatesEnabled);
+                        if (automatic != QamelPackageUpdater.AutomaticUpdatesEnabled)
+                            QamelPackageUpdater.AutomaticUpdatesEnabled = automatic;
+                    }
+                }
+            }
             EditorGUILayout.Space(8);
             if (settings == null)
             {
@@ -362,9 +369,6 @@ namespace QamelCapture.Editor
                 }
                 return;
             }
-
-            var serialized = new SerializedObject(settings);
-            serialized.Update();
 
             DrawCapture(serialized, settings);
             EditorGUILayout.Space(8);
