@@ -7,6 +7,25 @@ namespace QamelCapture.Tests
 {
     public class InputRecorderTests
     {
+#if ENABLE_INPUT_SYSTEM
+        [TestCase(KeyCode.Alpha0, UnityEngine.InputSystem.Key.Digit0)]
+        [TestCase(KeyCode.Alpha1, UnityEngine.InputSystem.Key.Digit1)]
+        [TestCase(KeyCode.Alpha9, UnityEngine.InputSystem.Key.Digit9)]
+        [TestCase(KeyCode.Keypad0, UnityEngine.InputSystem.Key.Numpad0)]
+        [TestCase(KeyCode.Keypad9, UnityEngine.InputSystem.Key.Numpad9)]
+        [TestCase(KeyCode.KeypadPlus, UnityEngine.InputSystem.Key.NumpadPlus)]
+        [TestCase(KeyCode.KeypadEnter, UnityEngine.InputSystem.Key.NumpadEnter)]
+        [TestCase(KeyCode.LeftControl, UnityEngine.InputSystem.Key.LeftCtrl)]
+        [TestCase(KeyCode.LeftCommand, UnityEngine.InputSystem.Key.LeftMeta)]
+        [TestCase(KeyCode.F8, UnityEngine.InputSystem.Key.F8)]
+        [TestCase(KeyCode.Space, UnityEngine.InputSystem.Key.Space)]
+        public void ChosenHotkeysMapToTheNewInputSystem(KeyCode chosen, UnityEngine.InputSystem.Key expected)
+        {
+            Assert.IsTrue(CompatInput.TryMap(chosen, out var actual));
+            Assert.AreEqual(expected, actual);
+        }
+#endif
+
         static QamelSettings MakeSettings(bool captureInput = true, bool captureMouse = true)
         {
             var settings = ScriptableObject.CreateInstance<QamelSettings>();

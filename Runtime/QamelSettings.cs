@@ -10,7 +10,7 @@ namespace QamelCapture
     {
         public const string ResourceName = "QamelSettings";
         /// <summary>Kept in sync with package.json by the release script.</summary>
-        public const string PluginVersion = "0.1.13";
+        public const string PluginVersion = "0.1.14";
 
         public enum FlipMode
         {
@@ -93,13 +93,13 @@ namespace QamelCapture
         [Range(2, 60)]
         public int streamChunkSeconds = 10;
 
-        [Tooltip("Check the published plugin once a day in the editor. Disabling this also stops automatic updates. No API key, identifiers or project data are sent.")]
+        [Tooltip("Check the published plugin at Editor startup and hourly. Disabling this also stops automatic updates. Version checks send no API key, identifiers or project data.")]
         public bool checkForUpdates = true;
 
         [Tooltip("Log Qamel's own informational messages to the console.")]
         public bool verboseLogging = false;
 
-        [Tooltip("If Qamel itself hits an internal error, send a small diagnostic (plugin/engine/OS info and the error, never gameplay data) to the Qamel servers so the plugin can be fixed.")]
+        [Tooltip("Send Editor version and update health, plus Qamel's internal errors, to help diagnose plugin issues. Never sends gameplay data, hostnames or project paths in Editor health heartbeats.")]
         public bool sendPluginDiagnostics = true;
 
         public static QamelSettings LoadFromResources()

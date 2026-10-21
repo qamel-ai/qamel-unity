@@ -64,13 +64,17 @@ namespace QamelCapture.Editor
                 !QamelVersion.TryParse(latestVersion, out var parsed) || parsed.PreRelease ||
                 !QamelVersion.IsNewer(latestVersion, QamelUpdateCheck.InstalledVersion)) return;
             string attempt = EditorPrefs.GetString(QamelUpdateCheck.ProjectKey("AutoAttemptVersion"), "");
-            if (attempt == latestVersion && !QamelUpdateCheck.IntervalElapsed(
-                    EditorPrefs.GetString(QamelUpdateCheck.ProjectKey("AutoAttemptTime"), ""), System.DateTime.UtcNow)) return;
+            if (!AutomaticRetryIsDue(latestVersion, attempt,
+                    EditorPrefs.GetString(QamelUpdateCheck.ProjectKey("AutoAttemptTime"), ""), DateTime.UtcNow)) return;
             EditorPrefs.SetString(QamelUpdateCheck.ProjectKey("AutoAttemptVersion"), latestVersion);
             EditorPrefs.SetString(QamelUpdateCheck.ProjectKey("AutoAttemptTime"),
                 System.DateTime.UtcNow.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture));
             StartUpdate(TargetFor(Installed, latestVersion), latestVersion);
         }
+
+        internal static bool AutomaticRetryIsDue(string latestVersion, string attemptedVersion,
+            string attemptedAt, DateTime now) =>
+            attemptedVersion != latestVersion || QamelUpdateCheck.IntervalElapsed(attemptedAt, now, 1d / 6);
 
         public static void ObserveCompletedUpdate()
         {

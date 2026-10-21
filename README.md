@@ -117,21 +117,21 @@ void OnDisable()
 | Capture Fps / Frame Width / Jpeg Quality | 24 / 1280 / 60 | Footage quality. If capture cannot keep up, frames are dropped instead of slowing the game. |
 | Frame Flip | Auto | Switch if footage arrives upside down |
 | Capture Input / Mouse Position | on | Keyboard and mouse actions (never typed text) |
-| Report Hotkey | F8 | |
+| Report Hotkey | F8 | Click the binding, then press a key. Escape cancels |
 | Use Built In Overlay | on | Off = use your own UI, see above |
 | Pause While Reporting | on | Freezes the game while the form is open; off for multiplayer |
 | Auto Report On Exception | on | Report unhandled exceptions automatically |
 | Continuous Streaming | off | Stream footage while playing instead of only on reports |
-| Check For Updates | on | Daily editor-only version check, see below |
+| Check For Updates | on | Editor startup and hourly version checks, see below |
 | Verbose Logging | off | Qamel's own console output |
-| Send Plugin Diagnostics | on | Report Qamel's internal errors to Qamel; never gameplay data |
+| Send Plugin Diagnostics | on | Report Editor version/update health and Qamel's internal errors; never gameplay data |
 
 Projects that already have a QamelSettings asset keep the values saved there.
 Use *Reset to defaults* in Project Settings > Qamel to pick up new package
 defaults (your API key is kept).
 
-Captured gameplay data is held in memory and uploaded to Qamel. Qamel persists
-only one random installation UUID in Unity PlayerPrefs so anonymous sessions
+Captured gameplay data is held in memory and uploaded to Qamel. In player builds,
+Qamel persists only one random installation UUID in Unity PlayerPrefs so anonymous sessions
 can be grouped; recordings, reports and upload queues are never written to the
 player's device.
 
@@ -139,8 +139,9 @@ player's device.
 
 Unity resolves a git package once and records that commit in your
 `Packages/packages-lock.json`, so Package Manager never offers you an update.
-Qamel checks the published package once a day, independently of website
-releases. Failed checks retry after ten minutes. *Check for updates* in
+Qamel checks the published package once per Editor session and hourly afterward,
+independently of website releases. Checks also run while scenes are unsaved or
+the Editor is in Play Mode. Failed checks retry after ten minutes. *Check for updates* in
 `Edit > Project Settings > Qamel` checks immediately and shows the result.
 The check runs only in the editor and sends no API key, identifiers or project
 data. Disable *Check For Updates* to stop background checks and automatic updates.
@@ -153,10 +154,17 @@ reimport the package and may reload scripts. Local copies, custom repositories,
 branch installs, commit pins and registry installs require a manual update.
 Player builds never check for or install updates.
 
+With *Send Plugin Diagnostics* enabled, the Editor reports its plugin and Unity
+versions, OS family, installation type and update status at startup, hourly, and
+when update status changes. A random ID distinguishes this project's local
+Editor installation. These checks include no API key in the diagnostic body,
+hostname, project path or gameplay data. Disable *Send Plugin Diagnostics* to
+stop these diagnostic heartbeats; API key validation remains available.
+
 The settings page shows available releases and installation errors, with
 *Update to X*, *View changes* and *Skip this version*. Skipping prevents that
 release from installing automatically. Explicit checks still show skipped
-releases. Failed automatic installations retry at most once per day; use
+releases. Failed automatic installations retry after ten minutes when Unity is idle; use
 *Update to X* or Package Manager to retry immediately. Manual updates ask for
 confirmation. An initially unpinned Git install becomes pinned to a release
 tag, and later automatic updates move it to newer release tags.

@@ -1,5 +1,5 @@
 using UnityEngine;
-#if QAMEL_INPUT_SYSTEM && ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
+#if QAMEL_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
 
@@ -27,8 +27,8 @@ namespace QamelCapture
 #endif
         }
 
-#if QAMEL_INPUT_SYSTEM && ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
-        static bool TryMap(KeyCode key, out Key mapped)
+#if QAMEL_INPUT_SYSTEM
+        internal static bool TryMap(KeyCode key, out Key mapped)
         {
             switch (key)
             {
@@ -37,10 +37,20 @@ namespace QamelCapture
                 case KeyCode.Escape: mapped = Key.Escape; return true;
                 case KeyCode.Backspace: mapped = Key.Backspace; return true;
                 case KeyCode.BackQuote: mapped = Key.Backquote; return true;
+                case KeyCode.LeftControl: mapped = Key.LeftCtrl; return true;
+                case KeyCode.RightControl: mapped = Key.RightCtrl; return true;
+                case KeyCode.LeftCommand: mapped = Key.LeftMeta; return true;
+                case KeyCode.RightCommand: mapped = Key.RightMeta; return true;
+                case KeyCode.Print: mapped = Key.PrintScreen; return true;
             }
 
+            string name = key.ToString();
+            if (key >= KeyCode.Alpha0 && key <= KeyCode.Alpha9)
+                name = "Digit" + name.Substring("Alpha".Length);
+            else if (name.StartsWith("Keypad", System.StringComparison.Ordinal))
+                name = "Numpad" + name.Substring("Keypad".Length);
             // Covers F1-F12, letters, Space, arrows etc. whose names match.
-            return System.Enum.TryParse(key.ToString(), true, out mapped) && mapped != Key.None;
+            return System.Enum.TryParse(name, true, out mapped) && mapped != Key.None;
         }
 #endif
     }

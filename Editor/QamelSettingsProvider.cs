@@ -16,6 +16,8 @@ namespace QamelCapture.Editor
 
         const string ShowOptionalKey = "Qamel.Settings.ShowOptional";
         const string FoldExperimentalTestingKey = "Qamel.Settings.Fold.ExperimentalTesting";
+        static bool _listeningForHotkey;
+        static EditorWindow _hotkeyWindow;
 
         [SettingsProvider]
         public static SettingsProvider Create()
@@ -26,6 +28,7 @@ namespace QamelCapture.Editor
                 keywords = new[] { "qamel", "capture", "bug", "report", "playtest", "qa", "api key" },
                 guiHandler = _ => Draw(),
                 activateHandler = (_, __) => QamelUpdateCheck.CheckWhenDue(QamelSettings.LoadFromResources()),
+                deactivateHandler = () => { _listeningForHotkey = false; _hotkeyWindow = null; },
             };
             // Repaint the settings window itself, including after a request finishes
             // while another editor window has focus.
@@ -110,7 +113,8 @@ namespace QamelCapture.Editor
                 GUILayout.FlexibleSpace();
                 string status = QamelUpdateCheck.DescribeStatus(QamelUpdateCheck.IsChecking,
                     QamelPackageUpdater.IsUpdating, QamelUpdateCheck.ReleaseVerified,
-                    QamelUpdateCheck.LastError, QamelUpdateCheck.InstalledVersion, QamelUpdateCheck.LatestVersion);
+                    QamelUpdateCheck.LastError, QamelUpdateCheck.InstalledVersion, QamelUpdateCheck.LatestVersion,
+                    QamelUpdateCheck.LastSuccess, System.DateTime.UtcNow);
                 GUILayout.Label(new GUIContent(status, QamelUpdateCheck.LastError ?? QamelUpdateCheck.LastResult),
                     EditorStyles.miniBoldLabel, GUILayout.Width(115));
                 using (new EditorGUI.DisabledScope(QamelUpdateCheck.IsChecking || QamelPackageUpdater.IsUpdating))
@@ -119,6 +123,17 @@ namespace QamelCapture.Editor
                             EditorStyles.miniButton, GUILayout.Width(140)))
                         QamelUpdateCheck.CheckNow(settings, userInitiated: true);
                 }
+            }
+
+            var lastCheck = QamelUpdateCheck.LastSuccessfulCheckUtc;
+            if (lastCheck.HasValue)
+            {
+                var localTime = lastCheck.Value.ToLocalTime();
+                EditorGUILayout.LabelField(new GUIContent(
+                    "Last successful check: " + localTime.ToString("g"),
+                    localTime.ToString("yyyy-MM-dd HH:mm:ss zzz") +
+                    "\nChecks run once per Editor session, then hourly. Check for updates refreshes immediately."),
+                    EditorStyles.miniLabel);
             }
 
             if (!string.IsNullOrEmpty(QamelUpdateCheck.LastError))
@@ -237,7 +252,46 @@ namespace QamelCapture.Editor
             if (GUILayout.Button(string.IsNullOrWhiteSpace(settings.apiKey) ? "Create API key" : "Manage API keys",
                     GUILayout.Width(180)))
                 Application.OpenURL(QamelSettingsLink.ApiKeysUrl(settings.endpoint));
-            DrawProperty(serialized, nameof(QamelSettings.reportHotkey));
+            DrawReportHotkey(serialized.FindProperty(nameof(QamelSettings.reportHotkey)));
+        }
+
+        static void DrawReportHotkey(SerializedProperty property)
+        {
+            if (property == null) return;
+            Rect row = EditorGUILayout.GetControlRect();
+            Rect button = EditorGUI.PrefixLabel(row, new GUIContent("Report hotkey",
+                "Click, then press a single keyboard key. Escape cancels."));
+            int control = GUIUtility.GetControlID("Qamel.ReportHotkey".GetHashCode(), FocusType.Keyboard, button);
+            Event input = Event.current;
+            if (_listeningForHotkey && (EditorWindow.focusedWindow != _hotkeyWindow ||
+                GUIUtility.keyboardControl != control ||
+                (input.type == EventType.MouseDown && !button.Contains(input.mousePosition))))
+            {
+                _listeningForHotkey = false;
+                if (GUIUtility.keyboardControl == control) GUIUtility.keyboardControl = 0;
+            }
+            if (_listeningForHotkey && input.type == EventType.KeyDown)
+            {
+                if (input.keyCode != KeyCode.None)
+                {
+                    if (input.keyCode != KeyCode.Escape) property.intValue = (int)input.keyCode;
+                    _listeningForHotkey = false;
+                    GUIUtility.keyboardControl = 0;
+                }
+                input.Use();
+            }
+            var assigned = (KeyCode)property.intValue;
+            string name = assigned >= KeyCode.Alpha0 && assigned <= KeyCode.Alpha9
+                ? ((int)assigned - (int)KeyCode.Alpha0).ToString()
+                : ObjectNames.NicifyVariableName(assigned.ToString());
+            string label = _listeningForHotkey ? "Press a key..." : name;
+            if (GUI.Button(button, new GUIContent(label, "Click to change the report hotkey."), EditorStyles.miniButton))
+            {
+                _listeningForHotkey = !_listeningForHotkey;
+                _hotkeyWindow = _listeningForHotkey ? EditorWindow.focusedWindow : null;
+                EditorGUIUtility.editingTextField = false;
+                GUIUtility.keyboardControl = _listeningForHotkey ? control : 0;
+            }
         }
 
         static void DrawOptional(SerializedObject serialized, QamelSettings settings)

@@ -18,6 +18,7 @@ namespace QamelCapture.Editor
         const string ChangesUrl = "https://github.com/qamel-ai/qamel-unity/commits/main";
         const int TimeoutSeconds = 10;
         const double RetrySeconds = 600;
+        const double CheckIntervalHours = 1;
         static double _nextTick;
         static double _retryAt;
         static double _idleSince = -1;
@@ -36,6 +37,9 @@ namespace QamelCapture.Editor
         public static bool IsChecking { get; private set; }
         public static string LastError { get; private set; }
         public static string LastResult { get; private set; }
+        public static string LastSuccess => EditorPrefs.GetString(ProjectKey("LastSuccess"), "");
+        public static DateTime? LastSuccessfulCheckUtc => ReadCheckTime(LastSuccess);
+        static bool CheckedThisSession => SessionState.GetBool(ProjectKey("CheckedThisSession"), false);
         public static bool UpdateAvailable => QamelVersion.IsNewer(LatestVersion, InstalledVersion);
         public static bool IsSkipped => string.Equals(SkippedVersion, LatestVersion, StringComparison.Ordinal);
         public static bool ShowUpdate => UpdateAvailable && (!IsSkipped || _manualResult);
@@ -64,17 +68,20 @@ namespace QamelCapture.Editor
             _nextTick = now + 1;
             QamelPackageUpdater.ObserveCompletedUpdate();
             var settings = QamelSettings.LoadFromResources();
-            if (!QamelPackageUpdater.EditorIsIdle || (settings != null && !settings.checkForUpdates))
+            if (settings != null && !settings.checkForUpdates)
             {
                 _idleSince = -1;
                 return;
             }
-            if (!IsChecking && CheckIsDue(ReleaseVerified,
-                    EditorPrefs.GetString(ProjectKey("LastSuccess"), ""), DateTime.UtcNow, now, _retryAt))
+            // Checking is read-only. Unsaved scenes and Play Mode only defer
+            // installation, not finding out whether a release is available.
+            if (!IsChecking && !EditorApplication.isCompiling && !EditorApplication.isUpdating &&
+                !BuildPipeline.isBuildingPlayer && CheckIsDue(ReleaseVerified,
+                    LastSuccess, DateTime.UtcNow, now, _retryAt, CheckedThisSession))
             {
                 CheckNow(settings, userInitiated: false);
             }
-            if (IsChecking || !ReleaseVerified || !UpdateAvailable || IsSkipped ||
+            if (!QamelPackageUpdater.EditorIsIdle || IsChecking || !ReleaseVerified || !UpdateAvailable || IsSkipped ||
                 !QamelPackageUpdater.AutomaticUpdatesEnabled ||
                 QamelPackageUpdater.AutomaticUpdateReason(QamelPackageUpdater.Installed) != null)
             {
@@ -86,28 +93,34 @@ namespace QamelCapture.Editor
             QamelPackageUpdater.TryAutomaticUpdate(LatestVersion);
         }
 
-        internal static bool IntervalElapsed(string stored, DateTime now)
+        internal static DateTime? ReadCheckTime(string stored)
         {
             if (!long.TryParse(stored, NumberStyles.Integer, CultureInfo.InvariantCulture, out long ticks) ||
-                ticks < DateTime.MinValue.Ticks || ticks > DateTime.MaxValue.Ticks) return true;
-            var last = new DateTime(ticks, DateTimeKind.Utc);
-            return last > now || (now - last).TotalHours >= 24;
+                ticks <= DateTime.MinValue.Ticks || ticks > DateTime.MaxValue.Ticks) return null;
+            return new DateTime(ticks, DateTimeKind.Utc);
+        }
+
+        internal static bool IntervalElapsed(string stored, DateTime now, double intervalHours = 24)
+        {
+            DateTime? last = ReadCheckTime(stored);
+            return !last.HasValue || last.Value > now || (now - last.Value).TotalHours >= intervalHours;
         }
 
         internal static bool CheckIsDue(bool verified, string lastSuccess, DateTime now,
-            double editorTime, double retryAt) =>
-            editorTime >= retryAt && (!verified || IntervalElapsed(lastSuccess, now));
+            double editorTime, double retryAt, bool checkedThisSession) =>
+            editorTime >= retryAt && (!checkedThisSession || !verified ||
+                IntervalElapsed(lastSuccess, now, CheckIntervalHours));
 
         internal static void CheckWhenDue(QamelSettings settings)
         {
             if (Application.isBatchMode || IsChecking || (settings != null && !settings.checkForUpdates)) return;
-            if (CheckIsDue(ReleaseVerified, EditorPrefs.GetString(ProjectKey("LastSuccess"), ""),
-                    DateTime.UtcNow, EditorApplication.timeSinceStartup, _retryAt))
+            if (CheckIsDue(ReleaseVerified, LastSuccess,
+                    DateTime.UtcNow, EditorApplication.timeSinceStartup, _retryAt, CheckedThisSession))
                 CheckNow(settings, userInitiated: false);
         }
 
         internal static string DescribeStatus(bool checking, bool updating, bool verified,
-            string error, string installed, string latest)
+            string error, string installed, string latest, string lastSuccess, DateTime now)
         {
             if (updating) return "Updating...";
             if (checking) return "Checking...";
@@ -116,6 +129,7 @@ namespace QamelCapture.Editor
                 !QamelVersion.TryParse(latest, out _)) return "Not checked";
             if (QamelVersion.IsNewer(latest, installed)) return "Update available";
             if (QamelVersion.IsNewer(installed, latest)) return "Development version";
+            if (IntervalElapsed(lastSuccess, now, CheckIntervalHours)) return "Check overdue";
             return "Up to date";
         }
 
@@ -133,6 +147,7 @@ namespace QamelCapture.Editor
         {
             if (IsChecking) return;
             IsChecking = true;
+            SessionState.SetBool(ProjectKey("CheckedThisSession"), true);
             _manualResult = userInitiated;
             LastError = null;
             LastResult = null;

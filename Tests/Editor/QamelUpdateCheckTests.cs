@@ -24,8 +24,36 @@ namespace QamelCapture.Tests
         public void SettingsStatusNeverClaimsAnUncheckedOrFailedVersionIsCurrent(bool checking,
             bool updating, bool verified, string error, string installed, string latest, string expected)
         {
+            var now = DateTime.UtcNow;
             Assert.AreEqual(expected, QamelUpdateCheck.DescribeStatus(checking, updating, verified,
-                error, installed, latest));
+                error, installed, latest, now.AddMinutes(-1).Ticks.ToString(), now));
+        }
+
+        [Test]
+        public void MatchingCachedVersionStopsClaimingItIsCurrentWhenTheCheckIsDue()
+        {
+            var now = new DateTime(2026, 10, 21, 4, 0, 0, DateTimeKind.Utc);
+            foreach (string stored in new[] { "", "bad", "0", long.MaxValue.ToString(),
+                         now.AddMinutes(1).Ticks.ToString(), now.AddHours(-1).Ticks.ToString() })
+                Assert.AreEqual("Check overdue", QamelUpdateCheck.DescribeStatus(false, false, true,
+                    null, "0.1.13", "0.1.13", stored, now), stored);
+            Assert.AreEqual("Up to date", QamelUpdateCheck.DescribeStatus(false, false, true,
+                null, "0.1.13", "0.1.13", now.AddHours(-1).AddTicks(1).Ticks.ToString(), now));
+            Assert.AreEqual("Update available", QamelUpdateCheck.DescribeStatus(false, false, true,
+                null, "0.1.13", "0.1.14", now.AddDays(-2).Ticks.ToString(), now));
+            Assert.AreEqual("Check failed", QamelUpdateCheck.DescribeStatus(false, false, false,
+                "Offline", "0.1.13", "0.1.13", now.AddMinutes(-1).Ticks.ToString(), now));
+        }
+
+        [Test]
+        public void PersistedCheckTimeRetainsUtcAndRejectsInvalidValues()
+        {
+            var checkedAt = new DateTime(2026, 10, 21, 4, 0, 0, DateTimeKind.Utc);
+            var restored = QamelUpdateCheck.ReadCheckTime(checkedAt.Ticks.ToString());
+            Assert.AreEqual(checkedAt, restored);
+            Assert.AreEqual(DateTimeKind.Utc, restored.Value.Kind);
+            foreach (string stored in new[] { null, "", "bad", "-1", "0", long.MaxValue.ToString() })
+                Assert.IsNull(QamelUpdateCheck.ReadCheckTime(stored), stored);
         }
 
         [Test]
@@ -183,9 +211,34 @@ namespace QamelCapture.Tests
         {
             var now = DateTime.UtcNow;
             string freshSuccess = now.AddMinutes(-1).Ticks.ToString();
-            Assert.IsFalse(QamelUpdateCheck.CheckIsDue(false, freshSuccess, now, 599, 600));
-            Assert.IsTrue(QamelUpdateCheck.CheckIsDue(false, freshSuccess, now, 600, 600));
-            Assert.IsFalse(QamelUpdateCheck.CheckIsDue(true, freshSuccess, now, 600, 600));
+            Assert.IsFalse(QamelUpdateCheck.CheckIsDue(false, freshSuccess, now, 599, 600, true));
+            Assert.IsTrue(QamelUpdateCheck.CheckIsDue(false, freshSuccess, now, 600, 600, true));
+            Assert.IsFalse(QamelUpdateCheck.CheckIsDue(true, freshSuccess, now, 600, 600, true));
+        }
+
+        [Test]
+        public void EachEditorSessionChecksAgainAndLongSessionsRefreshHourly()
+        {
+            var now = DateTime.UtcNow;
+            string recentSuccess = now.AddMinutes(-1).Ticks.ToString();
+            Assert.IsTrue(QamelUpdateCheck.CheckIsDue(true, recentSuccess, now, 10, 0, false));
+            Assert.IsFalse(QamelUpdateCheck.CheckIsDue(true, recentSuccess, now, 10, 0, true));
+            Assert.IsFalse(QamelUpdateCheck.CheckIsDue(false, recentSuccess, now, 599, 600, false));
+            Assert.IsTrue(QamelUpdateCheck.CheckIsDue(true, now.AddHours(-1).Ticks.ToString(),
+                now, 3600, 0, true));
+        }
+
+        [Test]
+        public void FailedAutomaticInstallsRetryAfterTenMinutesWithoutBlockingANewerRelease()
+        {
+            var now = DateTime.UtcNow;
+            Assert.IsFalse(QamelPackageUpdater.AutomaticRetryIsDue("0.1.14", "0.1.14",
+                now.AddMinutes(-10).AddTicks(1).Ticks.ToString(), now));
+            Assert.IsTrue(QamelPackageUpdater.AutomaticRetryIsDue("0.1.14", "0.1.14",
+                now.AddMinutes(-10).Ticks.ToString(), now));
+            Assert.IsTrue(QamelPackageUpdater.AutomaticRetryIsDue("0.1.15", "0.1.14",
+                now.Ticks.ToString(), now));
+            Assert.IsTrue(QamelPackageUpdater.AutomaticRetryIsDue("0.1.14", "0.1.14", "bad", now));
         }
 
         [UnityTest]
