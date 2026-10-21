@@ -188,9 +188,15 @@ namespace QamelCapture.Editor
             });
         }
 
+        internal static string FreshCheckUrl(string url) =>
+            url + (url.Contains("?") ? "&" : "?") + "_qamel_check=" + Guid.NewGuid().ToString("N");
+
         static void Send(string url, Action<string, string> completed)
         {
-            var request = UnityWebRequest.Get(url);
+            // A successful HTTP response can still be an old CDN copy. Each
+            // check must fetch fresh metadata before recording a new success.
+            var request = UnityWebRequest.Get(FreshCheckUrl(url));
+            request.SetRequestHeader("Cache-Control", "no-cache");
             request.timeout = TimeoutSeconds;
             var operation = request.SendWebRequest();
             void Poll()

@@ -13,6 +13,22 @@ namespace QamelCapture.Tests
 {
     public class QamelUpdateCheckTests
     {
+        [Test]
+        public void ReleaseChecksBypassCachedResponsesAndPreserveThePackageQuery()
+        {
+            foreach (string source in new[] { QamelUpdateCheck.PublishedManifestUrl,
+                         "https://ingest.qamel.ai/v1/plugin/latest?package=com.qamel.unity" })
+            {
+                string first = QamelUpdateCheck.FreshCheckUrl(source);
+                string second = QamelUpdateCheck.FreshCheckUrl(source);
+                Assert.AreNotEqual(first, second, "each check must bypass an earlier CDN response");
+                StringAssert.StartsWith(source + (source.Contains("?") ? "&" : "?"), first);
+                StringAssert.Contains("_qamel_check=", new Uri(first).Query);
+                Assert.IsTrue(Guid.TryParseExact(first.Substring(first.LastIndexOf('=') + 1), "N", out _));
+                if (source.Contains("?")) StringAssert.Contains("?package=com.qamel.unity&", first);
+            }
+        }
+
         [TestCase(false, false, false, null, "0.1.11", "", "Not checked")]
         [TestCase(false, false, true, null, "0.1.11", "", "Not checked")]
         [TestCase(true, false, false, null, "0.1.11", "0.1.11", "Checking...")]
@@ -270,7 +286,10 @@ namespace QamelCapture.Tests
                     for (int i = 0; i < 2; i++)
                     {
                         var context = await listener.GetContextAsync();
-                        string body = context.Request.RawUrl == "/endpoint"
+                        Assert.IsNotEmpty(context.Request.QueryString["_qamel_check"],
+                            "a check must not reuse the cacheable release URL");
+                        Assert.AreEqual("no-cache", context.Request.Headers["Cache-Control"]);
+                        string body = context.Request.Url.AbsolutePath == "/endpoint"
                             ? "{\"latest\":\"0.1.9\",\"minSupported\":\"0.1.0\"}"
                             : "{\"name\":\"com.qamel.unity\",\"version\":\"9.0.1\"}";
                         byte[] bytes = Encoding.UTF8.GetBytes(body);
