@@ -316,6 +316,16 @@ namespace QamelCapture.Editor
             if (settings.continuousStreaming)
                 DrawProperty(serialized, nameof(QamelSettings.streamChunkSeconds));
             EditorGUILayout.Space(8);
+            DrawProperty(serialized, nameof(QamelSettings.checkForUpdates));
+            using (new EditorGUI.DisabledScope(
+                !serialized.FindProperty(nameof(QamelSettings.checkForUpdates)).boolValue || QamelPackageUpdater.IsUpdating))
+            {
+                bool automatic = EditorGUILayout.Toggle(new GUIContent("Update automatically",
+                    "Install stable releases when Unity is idle and scenes are saved. Applies to this project on this machine."),
+                    QamelPackageUpdater.AutomaticUpdatesEnabled);
+                if (automatic != QamelPackageUpdater.AutomaticUpdatesEnabled)
+                    QamelPackageUpdater.AutomaticUpdatesEnabled = automatic;
+            }
             DrawProperty(serialized, nameof(QamelSettings.verboseLogging));
             DrawProperty(serialized, nameof(QamelSettings.sendPluginDiagnostics));
             EditorGUILayout.Space(8);
@@ -341,20 +351,6 @@ namespace QamelCapture.Editor
             {
                 EditorGUILayout.LabelField("Plugin updates", EditorStyles.boldLabel);
                 DrawVersionAndUpdates(settings);
-                if (serialized != null)
-                {
-                    EditorGUILayout.Space(4);
-                    DrawProperty(serialized, nameof(QamelSettings.checkForUpdates));
-                    using (new EditorGUI.DisabledScope(
-                        !serialized.FindProperty(nameof(QamelSettings.checkForUpdates)).boolValue || QamelPackageUpdater.IsUpdating))
-                    {
-                        bool automatic = EditorGUILayout.Toggle(new GUIContent("Update automatically",
-                            "Install stable releases when Unity is idle and scenes are saved. Applies to this project on this machine."),
-                            QamelPackageUpdater.AutomaticUpdatesEnabled);
-                        if (automatic != QamelPackageUpdater.AutomaticUpdatesEnabled)
-                            QamelPackageUpdater.AutomaticUpdatesEnabled = automatic;
-                    }
-                }
             }
             EditorGUILayout.Space(8);
             if (settings == null)

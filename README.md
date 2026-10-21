@@ -146,7 +146,7 @@ the Editor is in Play Mode. Failed checks retry after ten minutes. *Check for up
 The check runs only in the editor and sends no API key, identifiers or project
 data. Disable *Check For Updates* to stop background checks and automatic updates.
 
-*Update automatically* is in the Plugin updates panel and is on by default, with a choice saved for this project
+*Update automatically* is under Optional settings and is on by default, with a choice saved for this project
 on this machine. Official Git installs without a revision, or with a release
 tag, move to the newest stable release tag. Unity waits until it is out of Play
 Mode, finished importing or building, and all open scenes are saved. Updates
