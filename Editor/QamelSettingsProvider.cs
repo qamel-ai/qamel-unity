@@ -7,7 +7,7 @@ namespace QamelCapture.Editor
 {
     /// <summary>
     /// Project Settings > Qamel. Creates and edits the QamelSettings asset so setup
-    /// is: install package, paste play key, press play.
+    /// is: install package, paste API key, press play.
     /// </summary>
     internal static class QamelSettingsProvider
     {
@@ -187,7 +187,7 @@ namespace QamelCapture.Editor
             switch (QamelHealthCheck.Status)
             {
                 case QamelHealthCheck.Result.Checking:
-                    EditorGUILayout.HelpBox("Checking the play key…", MessageType.Info);
+                    EditorGUILayout.HelpBox("Checking the API key…", MessageType.Info);
                     break;
                 case QamelHealthCheck.Result.Connected:
                     EditorGUILayout.HelpBox("Connected to Qamel. This project can receive reports.",
@@ -195,14 +195,14 @@ namespace QamelCapture.Editor
                     break;
                 case QamelHealthCheck.Result.InvalidKey:
                     EditorGUILayout.HelpBox(
-                        "This play key was rejected. Create a new key and paste it here.",
+                        "This API key was rejected. Create a new key and paste it here.",
                         MessageType.Error);
                     DrawRetryHealth(settings);
                     break;
                 case QamelHealthCheck.Result.UnverifiedKey:
                     EditorGUILayout.HelpBox(
                         "This server has not confirmed capture-only access. Player builds will be blocked. " +
-                        "Use a play key from your project's Play keys page and an updated ingest server.",
+                        "Use an API key from your project's API keys page and an updated ingest server.",
                         MessageType.Error);
                     DrawRetryHealth(settings);
                     break;
@@ -231,12 +231,12 @@ namespace QamelCapture.Editor
             {
                 EditorGUILayout.PropertyField(
                     apiKey,
-                    new GUIContent("Play key", apiKey.tooltip),
+                    new GUIContent("API key", apiKey.tooltip),
                     true);
             }
-            if (GUILayout.Button(string.IsNullOrWhiteSpace(settings.apiKey) ? "Create play key" : "Manage play keys",
+            if (GUILayout.Button(string.IsNullOrWhiteSpace(settings.apiKey) ? "Create API key" : "Manage API keys",
                     GUILayout.Width(180)))
-                Application.OpenURL(QamelSettingsLink.PlayKeysUrl(settings.endpoint));
+                Application.OpenURL(QamelSettingsLink.ApiKeysUrl(settings.endpoint));
             DrawProperty(serialized, nameof(QamelSettings.reportHotkey));
         }
 
@@ -282,7 +282,7 @@ namespace QamelCapture.Editor
             {
                 if (GUILayout.Button("Reset to defaults", GUILayout.Width(180)) &&
                     EditorUtility.DisplayDialog("Reset Qamel settings?",
-                        "Every setting goes back to its default. Your play key is kept.", "Reset", "Cancel"))
+                        "Every setting goes back to its default. Your API key is kept.", "Reset", "Cancel"))
                     ResetToDefaults(settings);
             }
             DrawExperimentalTesting();

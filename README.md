@@ -29,8 +29,8 @@ both the legacy Input Manager and the Input System package.
    Unity records the exact commit in your `Packages/packages-lock.json`, so your
    version stays fixed until you update it.
 
-2. **Add your play key.** Create one for your project at
-   [Qamel Play keys](https://qamel.ai/play-keys), then open `Edit > Project Settings > Qamel`,
+2. **Add your API key.** Create one for your project at
+   [Qamel API keys](https://qamel.ai/play-keys), then open `Edit > Project Settings > Qamel`,
    click *Create Qamel settings*, and paste the key.
 
 3. **Play.** Press **F8** whenever something looks wrong, optionally describe it,
@@ -108,7 +108,7 @@ void OnDisable()
 | Setting | Default | |
 | ------- | ------- | ----- |
 | Playtest capture enabled | on | Master switch |
-| Play key | empty | Required; create one for your project at [Qamel Play keys](https://qamel.ai/play-keys) |
+| API key | empty | Required; create one for your project at [Qamel API keys](https://qamel.ai/play-keys) |
 | Endpoint | `https://ingest.qamel.ai` | Change only if Qamel gave you another host |
 | Upload Reports | on | Turn off to stop sending without disabling capture |
 | Build Id | empty | Optional CI/release build identifier used for filtering |
@@ -128,7 +128,7 @@ void OnDisable()
 
 Projects that already have a QamelSettings asset keep the values saved there.
 Use *Reset to defaults* in Project Settings > Qamel to pick up new package
-defaults (your play key is kept).
+defaults (your API key is kept).
 
 Captured gameplay data is held in memory and uploaded to Qamel. Qamel persists
 only one random installation UUID in Unity PlayerPrefs so anonymous sessions
@@ -184,9 +184,9 @@ also works if you track a branch and just want the newest commit.
 ## Troubleshooting
 
 **Nothing arrives.** Check the console for a `[Qamel]` warning. A missing
-play key disables capture at startup; a rejected key disables
-uploads for the session. Create or rotate keys at [Qamel Play keys](https://qamel.ai/play-keys)
-under the project's Play keys page.
+API key disables capture at startup; a rejected key disables
+uploads for the session. Create or rotate keys at [Qamel API keys](https://qamel.ai/play-keys)
+under the project's API keys page.
 
 **Footage is upside down.** Set *Frame Flip* to the opposite value.
 
@@ -202,8 +202,8 @@ Keyboard, mouse and standard Unity mono/stereo game audio can be recorded.
 
 ## License
 
-MIT, see [LICENSE.md](LICENSE.md). Using it needs a Qamel play key
-(create one at [Qamel Play keys](https://qamel.ai/play-keys)), which is where reports are
+MIT, see [LICENSE.md](LICENSE.md). Using it needs a Qamel API key
+(create one at [Qamel API keys](https://qamel.ai/play-keys)), which is where reports are
 analysed and grouped.
 
 ---

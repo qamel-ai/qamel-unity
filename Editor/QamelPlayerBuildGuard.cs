@@ -53,7 +53,7 @@ namespace QamelCapture.Editor
                 if (!approved)
                     throw new BuildFailedException(
                         "[Qamel] Player build blocked: a Qamel settings key could not be verified as capture-only. " +
-                        "Use an active play key from your project's Play keys page and a reachable, " +
+                        "Use an active API key from your project's API keys page and a reachable, " +
                         "updated ingest server. Remove the key to build without uploads. Disabling capture " +
                         "alone does not remove the embedded key.");
             }

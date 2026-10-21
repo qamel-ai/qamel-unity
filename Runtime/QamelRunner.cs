@@ -92,7 +92,7 @@ namespace QamelCapture
                 if (string.IsNullOrWhiteSpace(_settings.apiKey) ||
                     string.IsNullOrWhiteSpace(_settings.endpoint))
                 {
-                    Debug.LogError(QLog.Prefix + "Play key or endpoint is not set -- Qamel capture is DISABLED. " +
+                    Debug.LogError(QLog.Prefix + "API key or endpoint is not set -- Qamel capture is DISABLED. " +
                                    "Set them in Project Settings > Qamel (stored in the QamelSettings asset).");
                     enabled = false;
                     return;
@@ -209,7 +209,7 @@ namespace QamelCapture
                     // Qamel. Diagnostics go to the console instead.
                     ShowToast("Bug report could not be sent.");
                     QLog.Warn("Report discarded: uploads are not configured. Qamel keeps data only in memory " +
-                              "and on the Qamel servers; set the play key in Project Settings > Qamel.");
+                              "and on the Qamel servers; set the API key in Project Settings > Qamel.");
                     return;
                 }
 

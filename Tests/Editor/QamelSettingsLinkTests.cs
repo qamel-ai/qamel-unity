@@ -14,9 +14,9 @@ namespace QamelCapture.Tests
         [TestCase("http://[::1]:3000", "http://[::1]:3000/play-keys")]
         [TestCase("http://localhost.evil.example", "https://qamel.ai/play-keys")]
         [TestCase("https://user:secret@localhost:3000", "https://qamel.ai/play-keys")]
-        public void PlayKeyLinksOpenTheAppWithoutSendingAKey(string endpoint, string expected)
+        public void ApiKeyLinksOpenTheAppWithoutSendingAKey(string endpoint, string expected)
         {
-            Assert.AreEqual(expected, QamelSettingsLink.PlayKeysUrl(endpoint));
+            Assert.AreEqual(expected, QamelSettingsLink.ApiKeysUrl(endpoint));
         }
 
         const string Link = "com.unity.editor://editor/qamelcapture/settings";
