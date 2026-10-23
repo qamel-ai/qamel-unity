@@ -51,9 +51,10 @@ namespace QamelCapture
         bool _paused;
         float _previousTimeScale;
         bool _previousAudioPause;
-        static readonly Color Ink = new Color32(22, 32, 30, 255);
-        static readonly Color MutedInk = new Color32(76, 87, 84, 255);
-        static readonly Color Sand = new Color32(245, 243, 236, 255);
+        internal static readonly Color Ink = new Color32(22, 32, 30, 255);
+        internal static readonly Color MutedInk = new Color32(76, 87, 84, 255);
+        internal static readonly Color Sand = new Color32(245, 243, 236, 255);
+        internal static readonly Color Selection = new Color32(173, 225, 233, 255);
         static readonly Color Water = new Color32(14, 155, 181, 255);
         static readonly Color Border = new Color32(134, 140, 137, 255);
         Vector2 _textScroll;
@@ -247,6 +248,8 @@ namespace QamelCapture
         {
             if (!IsOpen) return;
 
+            var previousSkin = GUI.skin;
+            bool previousEnabled = GUI.enabled;
             var previousMatrix = GUI.matrix;
             var previousColor = GUI.color;
             var previousBackground = GUI.backgroundColor;
@@ -256,6 +259,8 @@ namespace QamelCapture
             var action = FormAction.None;
             try
             {
+                UseReportSkin();
+                GUI.enabled = true;
                 GUI.depth = -1000;
                 GUI.matrix = Matrix4x4.Scale(new Vector3(layout.Scale, layout.Scale, 1f));
                 GUI.color = GUI.backgroundColor = GUI.contentColor = Color.white;
@@ -283,6 +288,8 @@ namespace QamelCapture
             }
             finally
             {
+                GUI.skin = previousSkin;
+                GUI.enabled = previousEnabled;
                 GUI.matrix = previousMatrix;
                 GUI.color = previousColor;
                 GUI.backgroundColor = previousBackground;
@@ -402,10 +409,28 @@ namespace QamelCapture
         static GUIStyle _titleStyle, _bodyStyle, _fieldLabelStyle, _counterStyle, _textStyle, _readOnlyTextStyle;
         static GUIStyle _buttonStyle, _buttonTitleStyle, _buttonHintStyle, _primaryTitleStyle, _primaryHintStyle;
 
-        static GUIStyle LabelStyle(int size, Color color, bool bold = false,
+        static GUISkin _reportSkin;
+
+        static void UseReportSkin()
+        {
+            if (_reportSkin == null)
+            {
+                // Start from Unity's built-in skin, never a game's custom skin.
+                // Clone it so caret/selection settings cannot leak to other UI.
+                GUI.skin = null;
+                _reportSkin = UnityEngine.Object.Instantiate(GUI.skin);
+                _reportSkin.name = "Qamel report";
+                _reportSkin.hideFlags = HideFlags.HideAndDontSave;
+                _reportSkin.settings.cursorColor = Ink;
+                _reportSkin.settings.selectionColor = Selection;
+            }
+            GUI.skin = _reportSkin;
+        }
+
+        internal static GUIStyle LabelStyle(int size, Color color, bool bold = false,
             TextAnchor alignment = TextAnchor.UpperLeft)
         {
-            var style = new GUIStyle(GUI.skin.label)
+            var style = new GUIStyle()
             {
                 fontSize = size,
                 fontStyle = bold ? FontStyle.Bold : FontStyle.Normal,
@@ -415,7 +440,7 @@ namespace QamelCapture
                 margin = new RectOffset(0, 0, 0, 0),
                 richText = false,
             };
-            style.normal.textColor = color;
+            SetTextColor(style, color);
             return style;
         }
 
@@ -426,7 +451,20 @@ namespace QamelCapture
             _bodyStyle = LabelStyle(18, MutedInk);
             _fieldLabelStyle = LabelStyle(18, Ink, true);
             _counterStyle = LabelStyle(16, MutedInk, alignment: TextAnchor.MiddleRight);
-            _textStyle = new GUIStyle(GUI.skin.textArea)
+            _textStyle = CreateTextStyle();
+            _readOnlyTextStyle = new GUIStyle(_textStyle) { padding = new RectOffset(0, 0, 0, 0) };
+            _buttonStyle = new GUIStyle(GUIStyle.none);
+            _buttonTitleStyle = LabelStyle(18, Ink, true, TextAnchor.MiddleCenter);
+            _buttonHintStyle = LabelStyle(16, MutedInk, alignment: TextAnchor.MiddleCenter);
+            _primaryTitleStyle = LabelStyle(18, Color.white, true, TextAnchor.MiddleCenter);
+            _primaryHintStyle = LabelStyle(16, Color.white, alignment: TextAnchor.MiddleCenter);
+        }
+
+        internal static GUIStyle CreateTextStyle()
+        {
+            // A fresh style has no inherited textures, including the Editor's
+            // separate high-DPI backgrounds. The field surface is drawn by Qamel.
+            var style = new GUIStyle
             {
                 fontSize = 18,
                 wordWrap = true,
@@ -435,21 +473,15 @@ namespace QamelCapture
                 margin = new RectOffset(0, 0, 0, 0),
                 richText = false,
             };
-            // Explicit colors and empty backgrounds keep the form independent of
-            // the host game's GUISkin and its light/dark defaults.
-            foreach (var state in new[] { _textStyle.normal, _textStyle.hover, _textStyle.active,
-                _textStyle.focused, _textStyle.onNormal, _textStyle.onHover,
-                _textStyle.onActive, _textStyle.onFocused })
-            {
-                state.background = null;
-                state.textColor = Ink;
-            }
-            _readOnlyTextStyle = new GUIStyle(_textStyle) { padding = new RectOffset(0, 0, 0, 0) };
-            _buttonStyle = new GUIStyle(GUIStyle.none);
-            _buttonTitleStyle = LabelStyle(18, Ink, true, TextAnchor.MiddleCenter);
-            _buttonHintStyle = LabelStyle(16, MutedInk, alignment: TextAnchor.MiddleCenter);
-            _primaryTitleStyle = LabelStyle(18, Color.white, true, TextAnchor.MiddleCenter);
-            _primaryHintStyle = LabelStyle(16, Color.white, alignment: TextAnchor.MiddleCenter);
+            SetTextColor(style, Ink);
+            return style;
+        }
+
+        static void SetTextColor(GUIStyle style, Color color)
+        {
+            foreach (var state in new[] { style.normal, style.hover, style.active,
+                style.focused, style.onNormal, style.onHover, style.onActive, style.onFocused })
+                state.textColor = color;
         }
     }
 }
